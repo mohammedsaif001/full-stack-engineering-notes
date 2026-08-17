@@ -103,8 +103,10 @@ This is the single most important mental model in Git.
 
 **Every commit stores the hash of its parent commit.** That's it. That's the whole trick. This means Git history is literally a **singly linked list** (a DAG — Directed Acyclic Graph — once branches/merges are involved, but a straight line most of the time):
 
+<div style="background-color: #faf8f3; padding: 20px; border-radius: 8px; margin: 10px 0;">
+
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#0066cc', 'lineColor': '#0066cc', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff'}} }%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#e6f0ff', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'tertiaryTextColor': '#000'}, 'securityLevel': 'loose'}} }%%
 graph RL
     A["<b>Commit A</b><br/>Hash: a1b2<br/>Parent: none<br/>Msg: init"] 
     B["<b>Commit B</b><br/>Hash: c3d4<br/>Parent: a1b2<br/>Msg: add login"]
@@ -125,6 +127,8 @@ graph RL
     style Main fill:#f0e6ff
     style HEAD fill:#f0e6ff
 ```
+
+</div>
 
 **Key concepts (arrows point BACKWARD in time to parent commits):**
 
@@ -187,8 +191,10 @@ git cat-file -p <commit-hash>
 
 Git has **three areas**, and understanding this trio clears up 90% of Git confusion:
 
+<div style="background-color: #faf8f3; padding: 20px; border-radius: 8px; margin: 10px 0;">
+
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'tertiaryTextColor': '#000', 'tertiaryBorderColor': '#1a1a1a'}, 'securityLevel': 'loose'}} }%%
 graph LR
     WD["<b>Working Directory</b><br/>Your actual files<br/>edited in your editor<br/>(I changed X)"]
     SA["<b>Staging Area</b><br/>The 'index'<br/>holding pen<br/>(I'm about to<br/>commit X)"]
@@ -201,6 +207,8 @@ graph LR
     style SA fill:#fff5e6
     style REPO fill:#e6ffe6
 ```
+
+</div>
 
 **The three areas explained:**
 
@@ -411,8 +419,10 @@ git reset --mixed <commit>   # (default) move back, keep changes but UNSTAGE the
 git reset --hard <commit>    # move back, DISCARD all changes entirely — irreversible-feeling
 ```
 
+<div style="background-color: #faf8f3; padding: 20px; border-radius: 8px; margin: 10px 0;">
+
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'tertiaryTextColor': '#000', 'tertiaryBorderColor': '#1a1a1a'}, 'securityLevel': 'loose'}} }%%
 graph TB
     subgraph Before["<b>Before:</b> git reset --hard B"]
         direction RL
@@ -438,6 +448,8 @@ graph TB
     style D2 fill:#fff5e6
 ```
 
+</div>
+
 **`--hard` is destructive** — it throws away uncommitted work and detaches later commits from any branch. They're not *instantly* gone, though — Git's **`reflog`** (reference log) keeps a record of every place HEAD has pointed, and orphaned commits can be recovered for about 30 days before garbage collection.
 
 **Using `git reflog` to recover lost commits:**
@@ -459,8 +471,10 @@ git revert <commit>
 
 Instead of erasing history, `revert` creates a **brand-new commit** that applies the *opposite* of the target commit's changes.
 
+<div style="background-color: #faf8f3; padding: 20px; border-radius: 8px; margin: 10px 0;">
+
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'tertiaryTextColor': '#000', 'tertiaryBorderColor': '#1a1a1a'}, 'securityLevel': 'loose'}} }%%
 graph TB
     subgraph Before["<b>Before:</b> C introduced a bug"]
         direction RL
@@ -485,6 +499,8 @@ graph TB
     style C2 fill:#ffe6e6
     style E fill:#e6ffe6
 ```
+
+</div>
 
 **`reset` rewrites history (moves the pointer back). `revert` adds to history (moves forward with an undo).** On any branch that's already shared/pushed with others, always prefer `revert` — rewriting shared history breaks everyone else's clone.
 
@@ -516,8 +532,10 @@ git merge feature
 
 Creates a **new "merge commit"** that has **two parents** — the tip of `main` and the tip of `feature`. History is preserved exactly as it happened, including the branch's shape.
 
+<div style="background-color: #faf8f3; padding: 20px; border-radius: 8px; margin: 10px 0;">
+
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'tertiaryTextColor': '#000', 'tertiaryBorderColor': '#1a1a1a'}, 'securityLevel': 'loose'}} }%%
 graph TB
     subgraph Before["<b>Before: git merge feature</b>"]
         direction RL
@@ -555,6 +573,8 @@ graph TB
     style M fill:#fff5e6
 ```
 
+</div>
+
 `M` has **two parents**: `E` and `D`. Arrows point backward to both parents. The linked-list model becomes a DAG here — a commit can have more than one parent, but only merge commits do.
 
 ### `git rebase`
@@ -566,8 +586,10 @@ git rebase main
 
 Instead of creating a merge commit, rebase **rewrites** `feature`'s commits so they look like they were made **starting from the current tip of `main`** — moving the branch's starting point forward.
 
+<div style="background-color: #faf8f3; padding: 20px; border-radius: 8px; margin: 10px 0;">
+
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'tertiaryTextColor': '#000', 'tertiaryBorderColor': '#1a1a1a'}, 'securityLevel': 'loose'}} }%%
 graph TB
     subgraph Before["<b>Before: git rebase main</b>"]
         direction RL
@@ -603,6 +625,8 @@ graph TB
     style D2 fill:#fff5e6
 ```
 
+</div>
+
 `C` and `D` are **replayed as brand-new commits** `C'` and `D'` — same content/diff, but **new hashes**, because their parent changed (a commit's hash is derived from its content, which includes its parent hash). Arrows point backward linearly from D' to C' to E. Result: a **clean, linear history** with no merge commits — it looks like `feature` was built directly on top of the latest `main`, even though it wasn't originally.
 
 **The tradeoff:** rebase rewrites commit hashes. **Never rebase a branch that others have already pulled or based work on** — their history and yours will diverge and cause painful conflicts. Rule of thumb: rebase freely on your own local/unshared branches; merge (never rebase) once a branch is shared.
@@ -616,8 +640,10 @@ git merge --squash feature
 git commit -m "feat: add full checkout flow"
 ```
 
+<div style="background-color: #faf8f3; padding: 20px; border-radius: 8px; margin: 10px 0;">
+
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'tertiaryTextColor': '#000', 'tertiaryBorderColor': '#1a1a1a'}, 'securityLevel': 'loose'}} }%%
 graph TB
     subgraph Before["<b>Before: git merge --squash feature</b>"]
         direction RL
@@ -653,6 +679,8 @@ graph TB
     style E fill:#e6ffe6
     style S fill:#fff5e6
 ```
+
+</div>
 
 Note: `git merge --squash` stages the combined diff but **does not auto-commit** — you commit it yourself, which is your one chance to write a single clean message for the whole feature. Arrows on main point backward; feature branch (dotted) remains untouched.
 
@@ -833,8 +861,10 @@ git pull
 
 ## 🧭 HEAD, Commit, and the Full Picture Together
 
+<div style="background-color: #faf8f3; padding: 20px; border-radius: 8px; margin: 10px 0;">
+
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'tertiaryTextColor': '#000', 'tertiaryBorderColor': '#1a1a1a'}, 'securityLevel': 'loose'}} }%%
 graph RL
     A["A"]
     B["B"]
@@ -854,6 +884,8 @@ graph RL
     style MainRef fill:#f0e6ff
     style HeadRef fill:#f0e6ff
 ```
+
+</div>
 
 **Pointers explained (arrows point backward to parents):**
 
