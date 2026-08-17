@@ -188,7 +188,7 @@ git cat-file -p <commit-hash>
 Git has **three areas**, and understanding this trio clears up 90% of Git confusion:
 
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#0066cc'}} }%%
+%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
 graph LR
     WD["<b>Working Directory</b><br/>Your actual files<br/>edited in your editor<br/>(I changed X)"]
     SA["<b>Staging Area</b><br/>The 'index'<br/>holding pen<br/>(I'm about to<br/>commit X)"]
@@ -412,7 +412,7 @@ git reset --hard <commit>    # move back, DISCARD all changes entirely — irrev
 ```
 
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#0066cc'}} }%%
+%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
 graph TB
     subgraph Before["<b>Before:</b> git reset --hard B"]
         direction RL
@@ -460,7 +460,7 @@ git revert <commit>
 Instead of erasing history, `revert` creates a **brand-new commit** that applies the *opposite* of the target commit's changes.
 
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#0066cc'}} }%%
+%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
 graph TB
     subgraph Before["<b>Before:</b> C introduced a bug"]
         direction RL
@@ -517,7 +517,7 @@ git merge feature
 Creates a **new "merge commit"** that has **two parents** — the tip of `main` and the tip of `feature`. History is preserved exactly as it happened, including the branch's shape.
 
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#0066cc'}} }%%
+%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
 graph TB
     subgraph Before["<b>Before: git merge feature</b>"]
         direction RL
@@ -567,7 +567,7 @@ git rebase main
 Instead of creating a merge commit, rebase **rewrites** `feature`'s commits so they look like they were made **starting from the current tip of `main`** — moving the branch's starting point forward.
 
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#0066cc'}} }%%
+%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
 graph TB
     subgraph Before["<b>Before: git rebase main</b>"]
         direction RL
@@ -617,7 +617,7 @@ git commit -m "feat: add full checkout flow"
 ```
 
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#0066cc'}} }%%
+%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
 graph TB
     subgraph Before["<b>Before: git merge --squash feature</b>"]
         direction RL
@@ -834,7 +834,7 @@ git pull
 ## 🧭 HEAD, Commit, and the Full Picture Together
 
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#0066cc'}} }%%
+%%{init: {'theme': 'default', 'themeVariables': { 'primaryColor': '#fff5e6', 'primaryTextColor': '#000', 'primaryBorderColor': '#1a1a1a', 'lineColor': '#1a1a1a', 'secondBkgColor': '#e6f0ff', 'tertiaryBkgColor': '#f0e6ff', 'edgeLabelBackground': {'backgroundColor': '#ffffff'}, 'tertiaryTextColor': '#000'}} }%%
 graph RL
     A["A"]
     B["B"]
