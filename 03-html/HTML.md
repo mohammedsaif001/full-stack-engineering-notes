@@ -799,6 +799,165 @@ Both can render pixel-identical with the right CSS. The difference is entirely i
 
 ---
 
+### 11. Accessibility (a11y) & ARIA — Making HTML Usable by Everyone
+
+**Accessibility (often abbreviated "a11y" — "a", 11 letters, "y")** means a page can be used by people relying on assistive technology: screen readers, keyboard-only navigation, switch devices, screen magnifiers. This directly connects back to the [accessibility laws](#️-compliance--accessibility-laws-why-html-structure-matters) covered earlier — it's not optional polish, it's often a legal requirement.
+
+**The golden rule of accessibility: "No ARIA is better than bad ARIA."** Always prefer a native semantic HTML element over recreating its behavior with ARIA on a `<div>`. A real `<button>` gets keyboard focus, Enter/Space activation, and the correct screen-reader role automatically — for free. ARIA should fill gaps native HTML can't cover, not replace what it already does.
+
+#### What Is ARIA?
+
+**ARIA = Accessible Rich Internet Applications** — a set of HTML attributes that add extra information for assistive technology (mainly screen readers), used when semantic HTML alone isn't enough to describe a custom or dynamic component.
+
+```html
+<!-- A custom dropdown built from divs — semantics don't exist without ARIA -->
+<div role="button" tabindex="0" aria-pressed="false" aria-label="Toggle menu">
+  ☰
+</div>
+```
+
+Without `role="button"`, `tabindex="0"`, and `aria-*` attributes, a screen reader has no idea this `<div>` is interactive at all — it would just be silently skipped.
+
+#### `aria-label` vs. `aria-labelledby` vs. `alt` vs. visible text
+
+These all answer the same question — "what should the screen reader announce for this element?" — but apply in different situations:
+
+```html
+<!-- aria-label: provides an accessible name with NO visible text on screen -->
+<button aria-label="Close dialog">✕</button>
+
+<!-- aria-labelledby: points to ANOTHER element's text to use as the accessible name -->
+<h2 id="settings-heading">Settings</h2>
+<section aria-labelledby="settings-heading">
+  ...
+</section>
+
+<!-- aria-describedby: points to additional descriptive text (announced AFTER the label) -->
+<input type="password" aria-describedby="pw-hint">
+<p id="pw-hint">Must be at least 8 characters</p>
+
+<!-- alt: the img-specific equivalent, NOT a general-purpose ARIA attribute -->
+<img src="icon-close.png" alt="Close">
+```
+
+| Attribute | Use when |
+|---|---|
+| `alt` | Specifically on `<img>` — describes the image content |
+| `aria-label` | An interactive element has no visible text (an icon-only button) and there's no existing on-page text to reference |
+| `aria-labelledby` | Existing visible text elsewhere on the page should serve as this element's accessible name (avoids duplicating the string) |
+| `aria-describedby` | Extra explanatory text, read *after* the label — hints, error messages, format requirements |
+
+**Rule of thumb:** if there's already visible text that describes the element, use `aria-labelledby` to point to it rather than duplicating the string in `aria-label` — one source of truth, no risk of the two drifting out of sync.
+
+#### Common ARIA Roles
+
+`role` overrides or supplies the semantic meaning of an element for assistive technology — used mainly when building a custom widget that doesn't have a native HTML equivalent.
+
+```html
+<div role="alert">Your changes have been saved.</div>
+<div role="navigation">...</div>
+<div role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+  <h2 id="dialog-title">Confirm Deletion</h2>
+</div>
+<ul role="tablist">
+  <li role="tab" aria-selected="true">Tab 1</li>
+  <li role="tab" aria-selected="false">Tab 2</li>
+</ul>
+```
+
+| Role | Announces as | Common use |
+|---|---|---|
+| `role="alert"` | An urgent, live status message | Form submission errors, save confirmations |
+| `role="dialog"` / `role="alertdialog"` | A modal/popup window | Custom modal implementations |
+| `role="navigation"` | A navigation landmark | Equivalent to `<nav>` — prefer the real tag when possible |
+| `role="tablist"` / `role="tab"` / `role="tabpanel"` | A tabbed interface | Custom tab components |
+| `role="status"` | A polite, non-urgent live update | Loading indicators, "3 items in cart" |
+
+**Landmark roles are mostly redundant with semantic HTML5 tags** (`<nav>` already implies `role="navigation"`, `<main>` already implies `role="main"`) — this is another reason to prefer real semantic tags over `<div role="...">` whenever a native equivalent exists.
+
+#### ARIA States — Dynamic Properties That Change
+
+Unlike `role` (usually static), **ARIA states** describe something that changes as the user interacts with the page — screen readers re-announce the update:
+
+```html
+<button aria-expanded="false" aria-controls="menu-panel">Menu ▾</button>
+<div id="menu-panel" hidden>...</div>
+
+<input type="checkbox" aria-checked="true">
+
+<button aria-disabled="true">Submit (disabled)</button>
+
+<div aria-live="polite">Item added to cart.</div>
+<div aria-live="assertive">Error: connection lost.</div>
+```
+
+| State | Meaning |
+|---|---|
+| `aria-expanded` | Whether a collapsible section/dropdown is currently open |
+| `aria-checked` | Whether a custom checkbox/toggle is checked |
+| `aria-disabled` | Marks an element as disabled, without removing it from the tab order (unlike the native `disabled` attribute) |
+| `aria-hidden="true"` | Hides an element from assistive technology *only* — still visible on screen (use for purely decorative icons) |
+| `aria-live="polite"` / `"assertive"` | Announces dynamically-updated content automatically — `polite` waits for a pause, `assertive` interrupts immediately |
+
+**Critical distinction:** `aria-hidden="true"` hides something from screen readers **but leaves it visually and interactively present** — it does not remove keyboard focusability. Pairing `aria-hidden="true"` with `tabindex="-1"` is usually needed together, otherwise a keyboard user can still Tab onto an element a screen reader user is told doesn't exist.
+
+#### Keyboard Navigation & Focus
+
+A page is only accessible if every interactive element can be reached and operated **without a mouse**.
+
+```html
+<a href="#main-content" class="skip-link">Skip to main content</a>
+...
+<main id="main-content">...</main>
+```
+
+| Concept | Explanation |
+|---|---|
+| **Tab order** | The order elements receive focus when pressing Tab — follows DOM order by default; avoid fighting it with `tabindex` unless truly necessary |
+| `tabindex="0"` | Adds an element to the natural tab order (used to make a non-interactive element like a `<div>` focusable — last resort, prefer a real `<button>`) |
+| `tabindex="-1"` | Removes an element from the Tab key sequence, but it can still be focused programmatically (`element.focus()`) — used for things like modal headings after opening |
+| `tabindex="1"`, `"2"`, etc. (positive) | **Avoid** — manually renumbering tab order almost always creates a confusing, hard-to-maintain experience; let DOM order do the work |
+| **Skip link** | A hidden-until-focused link at the very top of the page letting keyboard users jump past a long nav straight to `<main>` — a near-universal accessibility pattern |
+| **Focus trap** | Keeping keyboard focus contained inside an open modal (Tab cycles within it, doesn't escape to the page behind) — needed when using `role="dialog"` |
+
+**Testing shortcut:** unplug the mouse (or just don't touch it) and try navigating an entire page/form using only Tab, Shift+Tab, Enter, and Space. If something can't be reached or operated this way, it's not accessible.
+
+#### Accessible Forms (Building on Section 8 Above)
+
+```html
+<label for="email">Email <span aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+<input type="email" id="email" name="email" required aria-describedby="email-error" aria-invalid="true">
+<p id="email-error" role="alert">Please enter a valid email address.</p>
+```
+
+| Pattern | Why it matters |
+|---|---|
+| `aria-invalid="true"` | Marks a field as currently failing validation — announced by screen readers alongside the field |
+| `aria-describedby` pointing to an error message | Connects the error text to the field, so it's announced when the field receives focus, not just visually shown |
+| A visible `*` marked `aria-hidden="true"`, paired with a screen-reader-only "(required)" | The `*` alone means nothing to a screen reader unless text backs it up |
+
+#### `<picture>` — Serving Different Images by Context (Beyond `srcset`)
+
+Building on the `<img>` `srcset` example in Section 3 — `<picture>` gives *full* control, including swapping to an entirely different image file (not just a different resolution of the same image) based on screen size or format support:
+
+```html
+<picture>
+  <source media="(min-width: 800px)" srcset="hero-desktop.webp" type="image/webp">
+  <source media="(min-width: 800px)" srcset="hero-desktop.jpg">
+  <source srcset="hero-mobile.webp" type="image/webp">
+  <img src="hero-mobile.jpg" alt="Team collaborating around a table">
+</picture>
+```
+
+The browser evaluates each `<source>` top-to-bottom and uses the first one that matches; the `<img>` at the end is both the fallback and where `alt` text belongs (an `<img>` is always required inside `<picture>`, even though `<source>` provides the actual chosen file).
+
+| Use `srcset` alone when... | Use `<picture>` when... |
+|---|---|
+| Serving the *same* image at different resolutions | Serving *entirely different* images (e.g. cropped differently) per screen size |
+| — | Serving a modern format (WebP/AVIF) with a fallback for browsers that don't support it |
+
+---
+
 ## 🏷️ Commonly Used Tags — Quick List
 
 Straight from the "commonly used" grouping in the original notes:
@@ -829,6 +988,7 @@ Plus the self-closing set:
 | **Semantic layout** | `header nav main article section aside footer figure figcaption` |
 | **Misc/interactive** | `iframe progress meter details summary canvas template` |
 | **Self-closing/void** | `br hr img input meta link` |
+| **Accessibility (ARIA)** | `aria-label aria-labelledby aria-describedby aria-expanded aria-hidden aria-live aria-invalid role tabindex` |
 
 | Input `type` values | Renders as |
 |---|---|
@@ -840,6 +1000,18 @@ Plus the self-closing set:
 | `file` | File upload |
 | `hidden` | Not visible, still submitted |
 | `submit`, `reset`, `button` | Form action buttons |
+
+| ARIA attribute | One-line meaning |
+|---|---|
+| `aria-label="..."` | Accessible name when there's no visible text |
+| `aria-labelledby="id"` | Accessible name sourced from another element's text |
+| `aria-describedby="id"` | Extra descriptive text, read after the label |
+| `role="..."` | Overrides/supplies semantic meaning for custom widgets |
+| `aria-expanded` | Whether a collapsible/dropdown is open |
+| `aria-hidden="true"` | Hides from screen readers only (still visible on screen) |
+| `aria-live="polite"/"assertive"` | Announces dynamic content updates automatically |
+| `tabindex="0"` | Adds to natural tab order (last resort on non-native elements) |
+| `tabindex="-1"` | Focusable via JS only, removed from Tab key sequence |
 
 ---
 
@@ -853,6 +1025,9 @@ Plus the self-closing set:
 6. **`<span>` is inline, `<div>` is block** — both carry no semantic meaning on their own; use semantic tags (`<article>`, `<section>`, etc.) when the *meaning* of the content matters.
 7. **`<label for="id">` is not decorative** — it's what lets a screen reader and mouse/touch users properly associate text with the input it describes.
 8. **Always include `alt` on `<img>`** — for accessibility, SEO, and graceful fallback if the image fails to load.
+9. **"No ARIA is better than bad ARIA"** — a native `<button>`, `<nav>`, or `<input>` already carries the correct role, focus behavior, and keyboard interaction for free; reach for `role`/`aria-*` only to fill gaps native HTML genuinely can't cover (custom widgets, dynamic live regions).
+10. **`aria-hidden="true"` hides from screen readers but NOT visually or from keyboard focus** — it needs `tabindex="-1"` alongside it, or a keyboard user can still land on something a screen reader user is told doesn't exist.
+11. **Accessibility is testable without special tools** — unplug the mouse and try to complete a task using only Tab, Shift+Tab, Enter, and Space; anything unreachable or inoperable that way has a real accessibility bug.
 
 ---
 
@@ -860,10 +1035,10 @@ Plus the self-closing set:
 
 - **CSS fundamentals** — selectors, box model, flexbox/grid (natural next step after HTML structure)
 - **DOM manipulation with JavaScript** — `document.querySelector`, `addEventListener`, dynamically creating elements
-- **Accessibility (a11y) deep dive** — ARIA roles, keyboard navigation, screen reader testing
+- **Automated accessibility testing** — axe DevTools, Lighthouse accessibility audits, WAVE
 - **HTTP headers in depth** — `Content-Type`, caching headers, `Content-Security-Policy`
-- **Responsive images & `<picture>`** — serving different images per screen size/format
 - **Web Components** — `<template>`, Shadow DOM, custom elements
+- **WCAG (Web Content Accessibility Guidelines)** — the formal A/AA/AAA standard that EU/ADA accessibility law is typically measured against
 
 ---
 
@@ -873,6 +1048,9 @@ Plus the self-closing set:
 - **HTML Living Standard (WHATWG):** https://html.spec.whatwg.org/
 - **web.dev Learn HTML:** https://web.dev/learn/html/
 - **Can I Use (browser support checker):** https://caniuse.com/
+- **MDN ARIA Reference:** https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA
+- **WAI-ARIA Authoring Practices (patterns for common widgets):** https://www.w3.org/WAI/ARIA/apg/
+- **WebAIM (accessibility testing & guides):** https://webaim.org/
 
 ---
 
