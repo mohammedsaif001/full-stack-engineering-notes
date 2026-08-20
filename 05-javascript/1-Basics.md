@@ -975,9 +975,10 @@ button.addEventListener('click', function (event) {
 
 | Part | Covers |
 |---|---|
-| **1. Basics** (this doc) | Engine/runtime, data types, execution context, hoisting, TDZ, `var`/`let`/`const`, all function forms, scope, all loop types incl. `map`/`filter`/`reduce`, HOF/callbacks, Array/Object/Map/Set with methods, DOM selection/manipulation/events |
-| **2. Closures, `this`, Destructuring** *(planned)* | Closures & the module pattern, `this` binding rules (implicit/explicit/`new`/arrow), destructuring, spread/rest, optional chaining |
-| **3. Async JavaScript** *(planned)* | Callbacks vs Promises vs `async`/`await`, the event loop, microtask vs macrotask queue, `fetch` |
-| **4. Advanced/OOP** *(planned)* | Prototypes & prototype chain, classes, `bind`/`call`/`apply`, modules (`import`/`export`) |
+| **1. Basics** (this doc) | Engine/runtime, data types, execution context, call stack, hoisting, TDZ, `var`/`let`/`const`, all function forms, scope, all loop types incl. `map`/`filter`/`reduce`, HOF/callbacks, Array/Object/Map/Set with methods, DOM selection/manipulation/events |
+| **2. Console, Environment, Data & Closures** | `console` methods, runtime vs compile time, pointers/references/shallow vs deep copy, `Symbol`, browser/Node-provided APIs vs pure JS, object/array declaration styles, Numbers & `Math`, String methods, Array mutating vs non-mutating methods, Object methods (`freeze`/`seal`/`defineProperty`), `arguments` object, pure vs impure functions, IIFE, closures |
+| **3. `this`, Destructuring** *(planned)* | `this` binding rules (implicit/explicit/`new`/arrow), destructuring, spread/rest, optional chaining |
+| **4. Async JavaScript** *(planned)* | Callbacks vs Promises vs `async`/`await`, the event loop, microtask vs macrotask queue, `fetch` |
+| **5. Advanced/OOP** *(planned)* | Prototypes & prototype chain, classes, `bind`/`call`/`apply`, modules (`import`/`export`) |
 
-*(Notes sourced from the Feb 7 & Feb 8 2026 handwritten class notes — will keep expanding as more classes are covered.)*
+*(Notes sourced from the Feb 7 & Feb 8 2026 handwritten class notes. This is a working series — as more class notes come in, expect these docs to get reorganized/renumbered/merged rather than staying frozen in their current split. See [2-Console-Variables-Data-Objects.md](2-Console-Variables-Data-Objects.md) for Part 2.)*
