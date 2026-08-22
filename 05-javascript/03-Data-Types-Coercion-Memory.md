@@ -13,7 +13,7 @@
 
 ---
 
-## 🧠 Core Analogy: The Locker Room vs. The Photocopier
+## 🧠 Core Analogy: The Locker Room, The Photocopier & The Bouncer
 
 - **Primitives (copied by value)** = handing someone a **photocopy** of a document. They can scribble all over their copy — yours stays exactly as it was. Two fully independent pieces of paper.
 - **Objects (copied by reference)** = handing someone a **locker key**, not the locker's contents. If you make a second key and hand it over, you both now open the *same* locker. Whoever opens it and rearranges the contents, both key-holders see the new arrangement — because there's only ever been one locker.
@@ -69,7 +69,7 @@ typeof function () {}    // "function" — the one carve-out `typeof` makes, eve
 typeof new Date()        // "object"
 ```
 
-The practical takeaway: whenever you hear "reference type," "object," or "non-primitive," they all point at this same single category — and everything in §4 below (copied by reference, shallow vs. deep copy) applies uniformly to arrays, functions, dates, and plain objects alike, because underneath they're all the same kind of thing.
+The practical takeaway: whenever you hear "reference type," "object," or "non-primitive," they all point at this same single category — and everything in §5 and §6 below (copied by reference, shallow vs. deep copy) applies uniformly to arrays, functions, dates, and plain objects alike, because underneath they're all the same kind of thing.
 
 ---
 
