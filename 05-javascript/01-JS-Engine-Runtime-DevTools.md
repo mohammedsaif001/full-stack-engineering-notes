@@ -359,7 +359,7 @@ This "push a context, run it, pop it" cycle repeats identically no matter how de
 
 ## 📚 Related Concepts to Explore Next
 
-This file covered *how JS runs* at the engine/runtime level and *where a single execution context comes from*. The next file, **02-Variables-Scope-Hoisting.md**, builds directly on the Execution Context and Call Stack concepts introduced here — it covers what happens *inside* an execution context's memory phase: hoisting, the Temporal Dead Zone, and how `var`, `let`, and `const` behave differently within that same memory-phase-then-code-phase model.
+This file covered *how JS runs* at the engine/runtime level and *where a single execution context comes from*. The next file, [02-Variables-Scope-Hoisting.md](./02-Variables-Scope-Hoisting.md), builds directly on the Execution Context and Call Stack concepts introduced here — it covers what happens *inside* an execution context's memory phase: hoisting, the Temporal Dead Zone, and how `var`, `let`, and `const` behave differently within that same memory-phase-then-code-phase model.
 
 ---
 
