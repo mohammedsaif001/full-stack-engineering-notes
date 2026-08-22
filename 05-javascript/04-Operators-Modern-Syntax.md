@@ -257,10 +257,10 @@ Rest uses the identical `...` syntax, but in the opposite direction: instead of 
 ```js
 function sumAll(...numbers) {
   // numbers is a real array here, gathered from every argument passed in
-  return numbers.reduce((total, n) => total + n, 0);
+  console.log(Array.isArray(numbers), numbers.length, numbers);
 }
 
-console.log(sumAll(1, 2, 3, 4));   // 10
+sumAll(1, 2, 3, 4);   // true 4 [1, 2, 3, 4]
 ```
 
 `...numbers` collects *every* argument the function was called with into one array, however many there are. It must be the last parameter — there's nothing left to gather once it starts sweeping up the rest.
