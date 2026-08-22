@@ -109,12 +109,12 @@ console.log(typeof null);            // "object"          — the classic quirk 
 ### Mutating methods (change the original array)
 
 ```js
-const crewRoster = ["Alok", "Abhinav"];
+const crewRoster = ["Priya", "Kabir"];
 
-crewRoster.push("Vraj");        // add to END        → ["Alok", "Abhinav", "Vraj"]
-crewRoster.pop();               // remove from END    → ["Alok", "Abhinav"]
-crewRoster.unshift("Zero");     // add to START        → ["Zero", "Alok", "Abhinav"]
-crewRoster.shift();             // remove from START   → ["Alok", "Abhinav"]
+crewRoster.push("Zoya");        // add to END        → ["Priya", "Kabir", "Zoya"]
+crewRoster.pop();               // remove from END    → ["Priya", "Kabir"]
+crewRoster.unshift("Zero");     // add to START        → ["Zero", "Priya", "Kabir"]
+crewRoster.shift();             // remove from START   → ["Priya", "Kabir"]
 
 crewRoster.splice(1, 0, "New");     // insert "New" at index 1, remove 0 elements
 crewRoster.splice(0, 1);            // remove 1 element starting at index 0
@@ -339,7 +339,6 @@ catalogEntry.newProp = "test";    // ❌ fails — seal blocks add/delete
 | Edit existing property values | ❌ Blocked | ✅ Allowed |
 | Add new properties | ❌ Blocked | ❌ Blocked |
 | Delete properties | ❌ Blocked | ❌ Blocked |
-| Structural changes (add/remove keys) | ❌ Blocked | ❌ Blocked |
 
 **`freeze` = total lockdown. `seal` = "you can't add or remove keys, but you can still edit what's already there."** Both fail **silently** (no error thrown) in non-strict mode — a classic source of "why didn't my change take effect?" bugs.
 
