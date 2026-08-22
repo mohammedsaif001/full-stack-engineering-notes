@@ -216,6 +216,8 @@ With a plain `while (attempts < 0)`, this body would never run at all. With `do.
 
 `forEach` calls a given function once for every element in an array, handling the index/counter bookkeeping internally.
 
+> The callbacks in this section are written with the `function` keyword rather than the shorter arrow-function syntax (`fruit => ...`) you may have seen elsewhere. That's deliberate — arrow functions aren't introduced until file 6 — not a sign that this is outdated style. Once you've read file 6, feel free to write these same callbacks as arrow functions.
+
 ```js
 const fruits = ["apple", "cherry", "peach"];
 
@@ -345,8 +347,6 @@ const evens = nums.reduce(function (acc, n) {
 }, []);
 console.log(evens);   // [2, 4, 6]
 ```
-
-> This file introduces `forEach`/`map`/`filter`/`reduce` as loop constructs — a way to repeat work across an array without writing an index-based `for` loop by hand. File 8 (Arrays & Objects Mastery) revisits all four in depth: which array methods mutate the original array versus return a new one, and how these methods chain together (`arr.filter(...).map(...).reduce(...)`) to build multi-step data pipelines.
 
 ---
 
