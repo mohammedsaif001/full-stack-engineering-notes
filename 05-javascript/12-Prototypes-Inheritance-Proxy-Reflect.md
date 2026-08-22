@@ -86,7 +86,7 @@ console.log(Vehicle.prototype.__proto__ === Object.prototype);          // true 
 |---|---|---|
 | Exists on | Only the **constructor function** `Vehicle` | **Every** object, including `vehicle1` |
 | What it is | The blueprint object `new` will link every instance to | The actual internal link `vehicle1` uses when looking things up |
-| Relationship | `vehicle1.__proto__ === Vehicle.prototype` — same object, two different names/access points |
+| Relationship | `vehicle1.__proto__ === Vehicle.prototype` | Same object, two different names/access points |
 
 > **The one-line mental model:** `.prototype` is the *blueprint on the factory*; `.__proto__` is the *actual wire connecting one specific product back to that blueprint*. Every `Vehicle` instance shares the *same* `Vehicle.prototype` object — that's why `status()` is defined **once** and every instance can call it, instead of every instance carrying its own private copy of the method (memory-efficient sharing, not duplication).
 
@@ -227,6 +227,8 @@ if (!Array.prototype.myReduce) {
 
 console.log([1, 2, 3, 4, 5, 6].myReduce((sum, n) => sum + n, 0));   // 21
 ```
+
+> One edge case this simplified version doesn't replicate: native `Array.prototype.reduce` throws `TypeError: Reduce of empty array with no initial value` when called on an empty array with no `initialValue`. This polyfill instead silently returns `undefined` in that case — worth knowing if you ever rely on the native error as a safety check.
 
 ### Polyfill for `Array.prototype.forEach`
 
