@@ -255,7 +255,7 @@ try {
 class ValidationError extends Error {
   constructor(message, field) {
     super(message);            // sets up .message via Error's own constructor
-    this.name = "ValidationError";
+    this.name = "ValidationError"; // .name does NOT auto-update to the subclass name — it stays "Error" unless set explicitly
     this.field = field;
   }
 }
