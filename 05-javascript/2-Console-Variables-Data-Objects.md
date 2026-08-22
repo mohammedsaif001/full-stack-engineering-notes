@@ -25,6 +25,8 @@ Part 1 covered *how JS executes* (engine, execution context, hoisting). Part 2 c
 
 ## 🛠️ 1. `console` — Your Diagnostic Toolkit
 
+> **DevTools tip:** pasting multi-line code directly into the browser console is blocked by default as an anti-self-XSS measure. Type `allow pasting` into the console first (or click through the warning) to enable it.
+
 `console` isn't part of the JS language spec — it's a **host object**, provided by the runtime (the browser or Node), which is why its exact method set can vary slightly between environments. But its core methods are universally available:
 
 ```js
@@ -318,6 +320,8 @@ console.log(Array.isArray("Ravi"));  // false
 console.log(typeof null);            // "object"          — the classic quirk (Part 1 §3)
 ```
 
+> **Don't use `typeof` to detect an array.** `typeof []` always gives `"object"` — it can never tell an array apart from a plain object. `Array.isArray(value)` is the only reliable check: it returns a real boolean, `true` only for actual arrays.
+
 ---
 
 ## 🔢 7. Numbers Deep Dive
@@ -529,6 +533,23 @@ const middle = ticketNumbers.slice(1, 3); // [25, 3]
 > ```
 > Newer non-mutating siblings exist too: `.toSorted()`, `.toReversed()`, `.toSpliced()` — same behavior as their mutating counterparts, but return a new array instead of mutating.
 
+### `forEach` — the 3rd callback parameter, and its interview gotcha
+
+```js
+const orders = [
+  { dish: "Pasta", qty: 2 },
+  { dish: "Ramen", qty: 1 },
+];
+
+orders.forEach((order, index, array) => {
+  console.log(`#${index + 1}: ${order.qty}x ${order.dish}`);
+  // `array` is the ORIGINAL array being iterated — rarely needed, but always available
+});
+```
+
+> **Interview question: does `forEach` work with `async`/`await`?**
+> `forEach` expects a **synchronous** callback — it does **not** wait for promises returned from the callback, so `await` inside a `forEach` callback does not pause the loop between iterations (all callbacks fire off near-instantly, and any async work inside them resolves independently, out of order). **There is also no way to `break`/`continue`/early-`return` out of a `forEach` loop** — the only way to stop it partway is to `throw` an exception, which is a hard crash (unless caught), not a controlled stop. Use a plain `for`/`for...of` loop instead when you need either sequential `await`s or early exit.
+
 ### Searching
 
 ```js
@@ -552,6 +573,7 @@ console.log(orders.every((o) => o.spicy));       // false — do ALL match?
 |---|---|---|
 | `push` / `pop` / `shift` / `unshift` / `splice` / `sort` / `reverse` | — | ✅ Yes |
 | `concat` / `slice` / `flat` / `flatMap` / `map` / `filter` | New array | ❌ No |
+| `forEach` | `undefined` (always) | ❌ No — but the callback can still mutate elements it's given |
 | `find` | First matching **element** | ❌ No |
 | `findIndex` | First matching **index** | ❌ No |
 | `includes` | `boolean` — value exists? | ❌ No |
@@ -802,6 +824,15 @@ function add(a, b) {
 | Easy to test/reason about | ✅ | Harder — depends on external state |
 
 Pure functions are preferred where possible (predictable, testable, safe to run in parallel) — but side effects (writing to a database, updating the DOM, logging) are also the entire *point* of most real programs, so impure functions aren't "wrong," just something to be deliberate about and isolate.
+
+> **On errors themselves:** getting an error is not, by itself, a bad thing — it's information. The actual problem is an **unhandled** error crashing the whole program. That's exactly what `try`/`catch` is for: catching an error where you can still respond sensibly, instead of letting it take down everything after it.
+> ```js
+> try {
+>   riskyOperation();
+> } catch (error) {
+>   console.error("Handled:", error.message);   // program keeps running
+> }
+> ```
 
 ---
 
