@@ -317,6 +317,8 @@ Function.prototype.myCall = function (thisArg, ...args) {
 console.log(announceMeal.myCall(kitchenA, "a tasting menu", "seasonal"));
 ```
 
+(One simplification worth naming: `thisArg || globalThis` treats any falsy `thisArg` — including legitimate ones like `0`, `""`, or `false` — as "none supplied." Real `call`/`apply` only fall back to the global object when `thisArg` is `null`/`undefined`; a fully spec-accurate polyfill would check for those two specifically rather than any falsy value.)
+
 ```js
 Function.prototype.myApply = function (thisArg, argsArray) {
   thisArg = thisArg || globalThis;
@@ -333,14 +335,25 @@ console.log(announceMeal.myApply(kitchenB, ["a set menu", "banquet"]));
 ```js
 Function.prototype.myBind = function (thisArg, ...boundArgs) {
   const originalFn = this;   // the function myBind was called on
-  return function (...laterArgs) {
+
+  function boundFn(...laterArgs) {
+    // if boundFn is itself invoked with `new`, real bind() ignores thisArg entirely —
+    // `new` always builds a fresh object and uses THAT as `this`, never the bound one
+    if (this instanceof boundFn) {
+      return originalFn.apply(this, [...boundArgs, ...laterArgs]);
+    }
     return originalFn.apply(thisArg, [...boundArgs, ...laterArgs]);
-  };
+  }
+
+  boundFn.prototype = Object.create(originalFn.prototype); // keeps `instanceof originalFn` working through boundFn
+  return boundFn;
 };
 
 const myBoundReport = reportStatus.myBind(courier, "Depot 5");
 console.log(myBoundReport("delayed"));   // Courier 12 at Depot 5: delayed
 ```
+
+This version deliberately handles the case §9 is about to cover: a bound function invoked with `new` builds a genuinely new object and ignores the bound `thisArg` — real `bind()` behaves the same way, which is easy to miss if you only ever call the bound function normally.
 
 > **Interview question: how would you polyfill `bind`?**
 > `bind` doesn't call the function — it must **return a new function** that, when eventually called, invokes the original using `.apply()` with the saved `thisArg` and the *combination* of arguments bound early (via `bind`) and arguments supplied later (at the actual call). The key insight is that `bind`'s implementation is naturally built **on top of** `apply` — no raw tricks are needed for it once `call`/`apply` exist.
