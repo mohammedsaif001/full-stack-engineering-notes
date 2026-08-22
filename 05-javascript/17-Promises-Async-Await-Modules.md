@@ -446,7 +446,7 @@ Seventeen files ago, file 1 opened with the JS engine parsing your very first li
 - **Hoisting and scope** (file 2) and **coercion/memory basics** (file 3) are the ground truth under every variable this file's examples declared.
 - **Destructuring** (file 4) is what made `const [user, orders, settings] = await Promise.all([...])` in section 7 read as cleanly as it does — that syntax wasn't incidental, it was file 4's payoff.
 - **Functions and closures** (files 6-7) are the actual mechanism behind every `.then((value) => ...)` callback and every `async` function body in this file — each one is a closure, capturing the scope it was defined in, exactly as file 7 described.
-- **Arrays, objects, and collections** (files 8-10) are what `Promise.all`'s array of results and `allSettled`'s array of `{status, value}` objects are built from.
+- **Arrays, objects, and collections** (files 8 and 10) are what `Promise.all`'s array of results and `allSettled`'s array of `{status, value}` objects are built from.
 - **The DOM and events** (file 11) is where you'll actually trigger most real Promises — a `fetch` fired from a click handler — and file 11 is where "host API, not JS language feature" was first established for exactly the objects this file formalized.
 - **Prototypes, `this`, and classes** (files 12-14) are what a custom `Error` subclass or a class-based API client relies on when it appears inside one of this file's `try`/`catch` blocks.
 - **Error handling** (file 15) is not a separate skill from async code — section 6 of this file *is* file 15's `try`/`catch`/`finally`, applied to `await`, with the exact same rules about `finally` always running and re-throws still propagating.
