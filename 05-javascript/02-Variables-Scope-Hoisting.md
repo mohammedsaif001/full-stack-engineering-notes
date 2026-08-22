@@ -195,7 +195,7 @@ Notice this trace leans directly on file 1's Call Stack model: `addFive(10)` doe
 
 | Keyword | Status | Re-declarable | Re-assignable | Hoisting behavior |
 |---|---|---|---|---|
-| `var` | **Deprecated** — avoid using it | ✅ | ✅ | Hoisted **and initialized** to `undefined` |
+| `var` | **Legacy** — discouraged in modern code | ✅ | ✅ | Hoisted **and initialized** to `undefined` |
 | `let` | ✅ Use this | ❌ | ✅ | Hoisted but **not initialized** → TDZ |
 | `const` | ✅ Use this (default choice) | ❌ | ❌ (one-time assignment only) | Hoisted but **not initialized** → TDZ |
 
