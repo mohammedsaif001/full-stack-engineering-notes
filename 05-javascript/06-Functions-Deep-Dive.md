@@ -247,7 +247,18 @@ const arrowLog = () => {
 arrowLog();
 ```
 
-Referencing `arguments` inside an arrow function either throws a `ReferenceError` (in a standalone script or module context, as above), or — if the arrow function is nested inside a *regular* function — silently resolves to that **enclosing** regular function's `arguments`, which is rarely the intended behavior and a genuine source of subtle bugs.
+Referencing `arguments` inside an arrow function either throws a `ReferenceError` (in a standalone script or module context, as above), or — if the arrow function is nested inside a *regular* function — silently resolves to that **enclosing** regular function's `arguments`, which is rarely the intended behavior and a genuine source of subtle bugs:
+
+```js
+function outer(a, b) {
+  const arrow = () => {
+    console.log(arguments); // NOT the arrow function's own arguments — arrow functions don't have one
+  };
+  arrow();
+}
+
+outer(1, 2); // Arguments(2) [1, 2] — this is outer's arguments, leaked through the arrow function
+```
 
 This is one of the concrete, practical reasons arrow functions and regular functions are not interchangeable: any function that genuinely needs to inspect however many arguments it was called with must be a regular function, or use **rest parameters** instead (`function f(...args) { }`, covered in file 4) — which work identically inside arrow functions, since rest parameters produce a real array, not the `arguments` object:
 
