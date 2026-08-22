@@ -250,6 +250,10 @@ const taskList = document.querySelector('#task-list');
 
 taskList.addEventListener('click', (event) => {
   // event.target is whatever was actually clicked — could be the <li>, or something inside it
+  // event.currentTarget is always taskList itself, since that's the element the listener is attached to
+  console.log(event.target.tagName, event.currentTarget.id);
+  // e.g. clicking the text inside an <li> logs: "LI" "task-list" — target is the <li>, currentTarget is always the <ul>
+
   const clickedItem = event.target.closest('li');
 
   if (!clickedItem) return;          // click landed on the list itself, not an item — ignore
