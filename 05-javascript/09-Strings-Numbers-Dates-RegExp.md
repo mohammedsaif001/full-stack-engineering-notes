@@ -181,7 +181,7 @@ console.log(rawInput.toLowerCase());   // "the status is ready"
 console.log(rawInput.toUpperCase());   // "THE STATUS IS READY"
 
 const message = "The pickup point is Dock 7. Repeat: Dock 7";
-console.log(message.indexOf("Dock"));   // 21 — position of FIRST match, -1 if not found
+console.log(message.indexOf("Dock"));   // 20 — position of FIRST match, -1 if not found
 console.log(message.includes("Dock")); // true
 
 console.log(message.slice(0, 14));      // "The pickup po" — copies a section, does not mutate
@@ -264,7 +264,7 @@ Every `getX` has a matching `setX` (`setFullYear`, `setMonth`, `setDate`, `setHo
 ```js
 const event = new Date(2026, 7, 22, 14, 30, 0);
 
-console.log(event.toISOString());     // "2026-08-22T09:00:00.000Z" — standard, machine-readable, always UTC
+console.log(event.toISOString());     // always UTC, e.g. "2026-08-22T09:00:00.000Z" if run in UTC+5:30 — the exact clock time shown shifts with the runtime's timezone, since 14:30 local gets converted to UTC first
 console.log(event.toDateString());    // "Sat Aug 22 2026" — quick human-readable date
 console.log(event.toLocaleDateString());   // "8/22/2026" (format depends on the runtime's locale)
 console.log(event.toLocaleTimeString());   // "2:30:00 PM" (locale-dependent)
@@ -345,7 +345,7 @@ console.log(text.replace(pattern, "REDACTED"));   // "...at ext. REDACTED for as
 
 ```js
 const messyPhone = "call me at 555.0173 or 555-0199";
-// replace with a function: uppercase whatever matched
+// replace with a function: normalize the separator to a hyphen
 console.log(messyPhone.replace(/\d{3}[.-]\d{4}/g, (match) => match.replace(/[.-]/, "-")));
 // "call me at 555-0173 or 555-0199" — normalizes both separators to a hyphen
 ```
@@ -438,7 +438,6 @@ This file rounds out JavaScript's everyday "small data" primitives, building on 
 ## 🔗 Resources
 
 - [MDN — Number](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number)
-- [MDN — Math](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math)
 - [MDN — String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)
 - [MDN — Date](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date)
 - [MDN — Regular expressions](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions)
