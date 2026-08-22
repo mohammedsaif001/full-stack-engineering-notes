@@ -275,7 +275,7 @@ const queryBook = {
   queries: ["Infra budget", "Water supply", "Road repair status", "Park maintenance"],
   [Symbol.iterator]() {
     let index = 0;
-    const queries = this.queries;
+    const queries = queryBook.queries; // reference the object by name, not `this` — `this` binding is covered in a later file
     return {
       next() {
         if (index < queries.length) {
@@ -305,7 +305,7 @@ The same object is far shorter to write as a generator, since `function*` alread
 const queryBookWithGenerator = {
   queries: ["Infra budget", "Water supply", "Road repair status", "Park maintenance"],
   *[Symbol.iterator]() {          // a generator method — note the `*` before the computed key
-    for (const q of this.queries) {
+    for (const q of queryBookWithGenerator.queries) { // named reference again, same reason as above
       yield q;
     }
   },
