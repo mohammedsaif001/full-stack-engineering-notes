@@ -211,6 +211,8 @@ The underscore `_` inside a number literal is a **visual separator only** — it
 
 ---
 
+Before diving into execution contexts, one quick piece of vocabulary: a **function** is a reusable, named block of code you can *call* (run) whenever you need it, as many times as you like. You can optionally hand it inputs — called **parameters** in the function's definition and **arguments** at the actual call site — and it can optionally hand back a result using `return`. The next two sections lean on this vocabulary constantly, so it's worth having it pinned down before continuing.
+
 ## ⚙️ 8. Execution Context: Global vs Function
 
 Every time JavaScript runs *any* code, it does so inside an **Execution Context (EC)** — a container that holds "what variables exist right now" and "what code is currently running."
@@ -285,6 +287,8 @@ function calculateTotal(price) {
 const receipt = calculateTotal(50);
 ```
 
+(The `` `$${amount.toFixed(2)}` `` line uses a **template literal** — a backtick-quoted string that can embed `${expression}` values directly — combined with `.toFixed(2)`, a built-in `Number` method that formats a number to exactly 2 decimal places as a string.)
+
 Step by step:
 
 1. `calculateTotal(50)` is called at the top level → a **new FEC for `calculateTotal`** is pushed onto the stack, with its own fresh memory (`price = 50`).
@@ -305,7 +309,7 @@ Step by step:
    │  code:   return formatPrice(discounted)   │
    ├──────────────────────────────────────────┤
  2 │  calculateTotal FEC                       │  ← paused, waiting on applyDiscount
-   │  memory: price = 50, finalPrice = undefined│
+   │  memory: price = 50, finalPrice = undefined │
    │  code:   const finalPrice = applyDiscount(price) │
    ├──────────────────────────────────────────┤
  1 │  Global Execution Context (GEC)           │  ← bottom: created first, removed last
