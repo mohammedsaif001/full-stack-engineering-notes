@@ -38,8 +38,10 @@ against a standard JS curriculum.
   generators/iterators, Proxy/Reflect, debounce/throttle, common design patterns
   (module/singleton/observer/factory), memory management basics, optional chaining/nullish
   coalescing, WeakMap/WeakSet, deeper DOM events (bubbling/capturing/delegation).
-- **File count:** 16 files (confirmed over the original 10-15 suggestion, in favor of full
-  topic coverage without forcing unrelated merges).
+- **File count:** 17 files (confirmed over the original 10-15 suggestion, in favor of full
+  topic coverage without forcing unrelated merges). Originally scoped at 16; a self-review
+  before planning caught that DOM & Browser Events had no home, so it was added as its own file
+  rather than folded into an unrelated one.
 
 ## File Hierarchy
 
@@ -57,19 +59,21 @@ Each file is `NN-Topic-Name.md`, zero-padded so filesystem sort order matches re
 | 8 | `08-Arrays-Objects-Mastery.md` | Array methods (mutating/non-mutating + chaining), object methods, `Object.freeze/seal/defineProperty`, JSON |
 | 9 | `09-Strings-Numbers-Dates-RegExp.md` | String/number/Math deep dive, Date object, regex basics |
 | 10 | `10-Collections-Iteration-Protocol.md` | Map/Set/WeakMap/WeakSet, Symbol, `Symbol.iterator`, generators, iterators |
-| 11 | `11-Prototypes-Inheritance-Proxy-Reflect.md` | Prototype chain, `prototype` vs `__proto__`, `Object.create`, polyfills, Proxy/Reflect basics |
-| 12 | `12-This-Keyword-Call-Apply-Bind.md` | `this` in all contexts, `call`/`apply`/`bind`, function constructors, `new` |
-| 13 | `13-Classes-OOP-Design-Patterns.md` | Classes, constructor, static, inheritance, public/private fields, singleton/observer/factory patterns |
-| 14 | `14-Error-Handling-Defensive-Coding.md` | try/catch/finally, Error object, custom errors, throw semantics |
-| 15 | `15-Event-Loop-Callbacks.md` | Single-threaded model, callback queue, microtask queue, worked examples |
-| 16 | `16-Promises-Async-Await-Modules.md` | Promise states, `.then/.catch/.finally`, `Promise.all/allSettled/race/any`, async/await, ES Modules vs CommonJS, capstone wrap-up |
+| 11 | `11-DOM-Browser-Events.md` | Selecting/reading/modifying the DOM, creating & inserting elements, event listeners, bubbling/capturing/delegation, `fetch`/`setTimeout` as Web APIs vs the JS engine |
+| 12 | `12-Prototypes-Inheritance-Proxy-Reflect.md` | Prototype chain, `prototype` vs `__proto__`, `Object.create`, polyfills, Proxy/Reflect basics |
+| 13 | `13-This-Keyword-Call-Apply-Bind.md` | `this` in all contexts, `call`/`apply`/`bind`, function constructors, `new` |
+| 14 | `14-Classes-OOP-Design-Patterns.md` | Classes, constructor, static, inheritance, public/private fields, singleton/observer/factory patterns |
+| 15 | `15-Error-Handling-Defensive-Coding.md` | try/catch/finally, Error object, custom errors, throw semantics |
+| 16 | `16-Event-Loop-Callbacks.md` | Single-threaded model, callback queue, microtask queue, worked examples |
+| 17 | `17-Promises-Async-Await-Modules.md` | Promise states, `.then/.catch/.finally`, `Promise.all/allSettled/race/any`, async/await, ES Modules vs CommonJS, capstone wrap-up |
 
 Ordering rationale: engine/runtime and variables come first (nothing else makes sense without
 them) → syntax and control flow → functions and closures (the biggest conceptual unlock) →
-data structures (arrays/objects/strings/collections) → object-oriented mechanics (prototypes →
-this → classes) → error handling → asynchronous JavaScript (event loop → promises → async/await
-→ modules) as the capstone, since async code is where every earlier concept (closures, `this`,
-error handling) gets used together.
+data structures (arrays/objects/strings/collections) → the DOM (where a fresher actually applies
+JS in a browser, and where events set up the vocabulary the event loop file later depends on) →
+object-oriented mechanics (prototypes → this → classes) → error handling → asynchronous
+JavaScript (event loop → promises → async/await → modules) as the capstone, since async code is
+where every earlier concept (closures, `this`, error handling) gets used together.
 
 ## Per-File Template
 
