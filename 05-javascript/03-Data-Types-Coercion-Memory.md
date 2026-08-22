@@ -6,12 +6,10 @@
 ## 📌 Executive Summary
 
 - Every value in JavaScript is either one of **7 primitive types**, or the **single non-primitive type — `Object`** (arrays, functions, dates, maps, sets, plain objects are all `Object` under the hood).
-- `undefined` is the engine's own "no value assigned yet"; `null` is a value a developer assigns **on purpose** to mean "empty." `typeof null === "object"` is a decades-old bug kept for backward compatibility, not a design choice.
-- **Primitives are copied by value** — assigning one variable to another duplicates the actual data, giving two fully independent values.
-- **Objects are copied by reference** — assigning one variable to another copies a pointer to the *same* underlying object in memory, so both names see any mutation made through either one.
-- This is exactly why `const arr = []; arr.push(1);` is legal: `const` locks the variable's **binding** (which object it points to), not the object's **contents** — a promise this series made in file 2 and now delivers on in full.
-- A **shallow copy** (`{ ...obj }`, `Object.assign`) only duplicates the top level — any nested object inside is still a shared reference. A **deep copy** (`structuredClone`) duplicates every level, leaving no shared references anywhere.
-- `==` compares after **coercing** operands to a common type first; `===` never coerces and compares type *and* value — which is exactly why `===` is the professional default.
+- `undefined` is the engine's own "no value assigned yet"; `null` is a value a developer assigns **on purpose** to mean "empty."
+- **Primitives are copied by value** (fully independent copies); **objects are copied by reference** (both names point to the same underlying data) — this is exactly why `const arr = []; arr.push(1);` is legal, since `const` locks the variable's *binding*, not the object's *contents*.
+- A **shallow copy** only duplicates the top level, leaving nested objects as shared references; a **deep copy** duplicates every level.
+- `==` coerces operands to a common type before comparing; `===` never coerces — which is why `===` is the professional default.
 
 ---
 
@@ -314,7 +312,7 @@ The `[] == false` row is a good illustration of why loose equality has a reputat
 
 ## 📚 Related Concepts to Explore Next
 
-This file closed the loop file 2, [`02-Variables-Scope-Hoisting.md`](./02-Variables-Scope-Hoisting.md), opened around `const` and object mutation, and built out the full primitive/reference model those two files assumed but hadn't yet defined. The next file, **04-Operators-Modern-Syntax.md**, picks up directly from §7 here — it covers the broader set of JS operators beyond `==`/`===` (arithmetic, logical, ternary, nullish coalescing) and the modern syntax features (template literals in more depth, destructuring, spread/rest) that build on the value-vs-reference model established in this file.
+This file closed the loop that file 2, [`02-Variables-Scope-Hoisting.md`](./02-Variables-Scope-Hoisting.md), opened around `const` and object mutation, and built out the full primitive/reference model those two files assumed but hadn't yet defined. The next file, [`04-Operators-Modern-Syntax.md`](./04-Operators-Modern-Syntax.md), picks up directly from §7 here — it covers the broader set of JS operators beyond `==`/`===` (arithmetic, logical, ternary, nullish coalescing) and the modern syntax features (template literals in more depth, destructuring, spread/rest) that build on the value-vs-reference model established in this file.
 
 ---
 

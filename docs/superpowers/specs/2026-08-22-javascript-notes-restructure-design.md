@@ -80,7 +80,7 @@ where every earlier concept (closures, `this`, error handling) gets used togethe
 Every file follows the same skeleton (matching `02-github/Github.md` and
 `01-networking/03/3-CDN_Caching.md`):
 
-1. **Title + "Part N of 16" subtitle**
+1. **Title + "Part N of 17" subtitle**
 2. **Executive Summary** — 3-5 bullets, the big picture in plain English
 3. **Core Analogy** — one real-life, professionally-framed analogy specific to that topic's
    mental model. No Hinglish, no personally-named characters — analogies drawn from everyday,
