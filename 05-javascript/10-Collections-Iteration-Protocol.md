@@ -275,7 +275,7 @@ const queryBook = {
   queries: ["Infra budget", "Water supply", "Road repair status", "Park maintenance"],
   [Symbol.iterator]() {
     let index = 0;
-    const queries = queryBook.queries; // reference the object by name, not `this` — `this` binding is covered in a later file
+    const queries = queryBook.queries; // reference the object by name, not `this` (that binding rule is covered in a later file) — this works because the method only runs once `for...of` calls it, well after the `const queryBook = ...` assignment above has already finished
     return {
       next() {
         if (index < queries.length) {
