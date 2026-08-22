@@ -91,7 +91,7 @@ prepareOrder("Desk Lamp", (err, order) => {
 ## 🌐 3. What `fetch`/`setTimeout` Actually Are, and Who Does the Work
 
 ```
-const data = fetch(url)     ← this line returns a REFERENCE immediately, not the result
+const pendingResult = fetch(url)     ← this line returns a REFERENCE immediately, not the result
 
 ┌─────────────┐        ┌──────────────────┐
 │  fetch()    │───────▶│  Object = {       │
