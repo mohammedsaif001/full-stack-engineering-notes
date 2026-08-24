@@ -23,10 +23,14 @@ const verifyRefreshToken = (token) => {
     return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
 }
 
+// Hash refresh token before storing — same approach as reset tokens -  Explain letter what it does and why it is important
+const hashToken = (token) => crypto.createHas("sha256").update(token).digest("hex");
+
+
 const generateResetToken = () => {
     const rawToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const hashedToken =  hashToken(rawToken)
     return {rawToken,hashedToken}
 }
 
-export {generateAccessToken,verifyAccessToken,generateRefreshToken,verifyRefreshToken,generateResetToken }
+export {generateAccessToken,verifyAccessToken,generateRefreshToken,verifyRefreshToken,generateResetToken,hashToken }
