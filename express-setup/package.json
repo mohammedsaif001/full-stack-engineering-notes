@@ -1,11 +1,12 @@
 {
   "name": "express-setup-with-dto-auth",
   "version": "1.0.0",
-  "description": "Learning Hitesh's express mongo dto auth setups",
+  "description": "Learning Web Dev Cohort's mongo dto auth setups",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start":"node server.js",
+    "dev":"node --watch server.js"
   },
   "author": "",
   "license": "ISC",
