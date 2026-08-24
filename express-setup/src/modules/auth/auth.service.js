@@ -1,3 +1,4 @@
+import { sendResetPasswordEmail, sendVerificationEmail } from "../../common/config/email.js";
 import ApiError from "../../common/utils/api-error.js";
 import {
   generateAccessToken,
@@ -26,6 +27,13 @@ const register = async ({ name, email, password, role }) => {
     role,
     verificationToken: hashedToken,
   });
+
+  // Don't let email failure crash registration — user is already created
+  try {
+    await sendVerificationEmail(email, rawToken);
+  } catch (err) {
+    console.error("Failed to send verification email:", err.message);
+  }
 
   const userObj = user.toObject();
   delete userObj.password;
@@ -140,7 +148,6 @@ const forgotPassword = async (email) => {
   }
 };
 
-
 const resetPassword = async (token, newPassword) => {
   const hashedToken = hashToken(token);
 
@@ -156,7 +163,6 @@ const resetPassword = async (token, newPassword) => {
   user.resetPasswordExpires = undefined;
   await user.save();
 };
-
 
 const getMe = async (userId) => {
   const user = User.findById(userId);
