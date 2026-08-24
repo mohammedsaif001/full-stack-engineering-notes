@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start":"node server.js",
-    "dev":"node --watch server.js"
+    "dev":"node --watch server.js",
+    "db:up":"docker compose up -d",
+    "db:down":"docker compose down"
   },
   "author": "",
   "license": "ISC",
