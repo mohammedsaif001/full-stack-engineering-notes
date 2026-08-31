@@ -345,8 +345,6 @@ After handling `SIGTERM` and draining all active HTTP connections, call `process
 
 ## 🧪 5. Complete Hands-on Code Laboratory & Behavior Analysis
 
-Here is the exhaustive walkthrough of every script from `1-one.js` through `7-seven.js` and `hello.js`, incorporating **Phase 0: Module Imports Resolution** in every trace.
-
 ---
 
 ### 📄 Lab 1: `1-one.js` — Top-Level Code vs Timers
