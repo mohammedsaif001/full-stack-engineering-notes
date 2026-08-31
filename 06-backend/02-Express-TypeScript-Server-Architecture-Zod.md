@@ -1,5 +1,5 @@
 # Modern Express & TypeScript: Server Architecture, Zod Validation & MVC
-## Class 02 — Building Production-Grade Backend Services
+## Building Production-Grade Backend Services & Layered Architectures
 
 ---
 

@@ -1,5 +1,5 @@
 # Introduction to Backend Engineering: HTTP, Node.js & TypeScript
-## Class 01 — Foundations of Modern Backend Architecture
+## Foundations of Modern Backend Architecture & Protocols
 
 ---
 
