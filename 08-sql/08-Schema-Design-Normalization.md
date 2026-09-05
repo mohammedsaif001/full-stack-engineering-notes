@@ -59,6 +59,52 @@ CREATE TABLE follows (
     PRIMARY KEY (follower_id, following_id)   -- composite primary key: this exact pair can only exist once
 );
 ```
+```text
+DROP TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+```
+
+```sql
+-- Seed data
+INSERT INTO app_users (username, email) VALUES
+('shubham_codes',  'shubham@chaigram.in'),
+('hitesh_ui',      'hitesh@chaigram.in'),
+('piyush_travels', 'piyush@chaigram.in');
+
+INSERT INTO posts (user_id, caption) VALUES
+(1, 'Just deployed my first Postgres DB! #coding #sql'),
+(2, 'New UI design for the app. Thoughts?'),
+(3, 'Goa trip planning... again.');
+
+INSERT INTO likes (user_id, post_id) VALUES
+(2, 1),  -- Hitesh likes Shubham's post
+(3, 1),  -- Piyush likes Shubham's post
+(1, 2);  -- Shubham likes Hitesh's post
+
+INSERT INTO comments (user_id, post_id, comment_text) VALUES
+(2, 1, 'Great job bro!'),
+(1, 3, 'Kab chal rahe hain?');
+```
+```text
+INSERT 0 3
+INSERT 0 3
+INSERT 0 3
+INSERT 0 2
+```
+
+```sql
+-- Trying to like the same post twice as the same user:
+INSERT INTO likes (user_id, post_id) VALUES (2, 1);
+```
+```text
+ERROR:  duplicate key value violates unique constraint "likes_user_id_post_id_key"
+DETAIL:  Key (user_id, post_id)=(2, 1) already exists.
+```
+> This is the `UNIQUE(user_id, post_id)` constraint doing exactly its job — Hitesh (`user_id = 2`) already liked post 1 once; the schema itself makes double-liking impossible, with no application-level check needed.
 
 ### Fuller design notes from the extended Instagram schema (stories, bookmarks, account settings)
 - **`stories`**: like `posts`, but with an optional `post_id INT FK` (nullable — a story can exist independently of a post, e.g. a "share to story" repost links back).
@@ -75,7 +121,14 @@ FROM posts p
 LEFT JOIN likes l ON p.post_id = l.post_id
 GROUP BY p.post_id, p.caption;
 ```
-`LEFT JOIN` here ensures posts with **zero** likes still show up (with `total_likes = 0`) instead of disappearing, which an `INNER JOIN` would cause.
+```text
+                       caption                        | total_likes
+-------------------------------------------------------+-------------
+ Just deployed my first Postgres DB! #coding #sql      |           2
+ New UI design for the app. Thoughts?                  |           1
+ Goa trip planning... again.                           |           0
+```
+`LEFT JOIN` here ensures posts with **zero** likes still show up (Piyush's Goa post, `total_likes = 0`) instead of disappearing, which an `INNER JOIN` would cause — `INNER JOIN` would have silently dropped that row entirely since it has no matching row in `likes`.
 
 ---
 

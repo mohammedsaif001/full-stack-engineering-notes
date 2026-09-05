@@ -17,7 +17,13 @@
 ## Creating a table with realistic constraints
 ```sql
 DROP TABLE IF EXISTS students;
+```
+```text
+DROP TABLE
+```
+> `DROP TABLE IF EXISTS` never errors even if the table was never created — without `IF EXISTS`, dropping a table that doesn't exist would throw `ERROR: table "students" does not exist`.
 
+```sql
 CREATE TABLE students (
     student_id SERIAL PRIMARY KEY,        -- auto-incrementing integer, uniquely identifies each row
     first_name VARCHAR(50) NOT NULL,      -- cannot be empty
@@ -33,6 +39,56 @@ CREATE TABLE students (
     enrollment_date DATE DEFAULT CURRENT_DATE
 );
 ```
+```text
+CREATE TABLE
+```
+> That's it — `CREATE TABLE` returns no data, just a confirmation that the structure now exists. You won't see rows until you `INSERT` into it.
+
+### Watching the constraints actually fire
+```sql
+INSERT INTO students (first_name, email, age) VALUES ('John', 'john@example.com', 22);
+```
+```text
+INSERT 0 1
+```
+```sql
+SELECT * FROM students;
+```
+```text
+ student_id | first_name | last_name |      email       | phone_number | age | current_status | masterji_handle | has_joined_masterji | current_score | enrollment_date
+------------+------------+-----------+-------------------+--------------+-----+-----------------+------------------+----------------------+---------------+------------------
+          1 | John       |           | john@example.com |              |  22 | active          |                  | f                    |               | 2026-09-05
+(1 row)
+```
+> Notice `current_status` auto-filled to `'active'` (the `DEFAULT`) and `enrollment_date` auto-filled to today's date via `CURRENT_DATE`, even though neither was supplied in the `INSERT`.
+
+```sql
+-- Violating CHECK (age > 12):
+INSERT INTO students (first_name, email, age) VALUES ('Baby', 'baby@example.com', 5);
+```
+```text
+ERROR:  new row for relation "students" violates check constraint "students_age_check"
+DETAIL:  Failing row contains (2, Baby, null, baby@example.com, null, 5, active, null, f, null, 2026-09-05).
+```
+
+```sql
+-- Violating UNIQUE (email already exists):
+INSERT INTO students (first_name, email, age) VALUES ('Johnny', 'john@example.com', 25);
+```
+```text
+ERROR:  duplicate key value violates unique constraint "students_email_key"
+DETAIL:  Key (email)=(john@example.com) already exists.
+```
+
+```sql
+-- Violating NOT NULL (first_name omitted):
+INSERT INTO students (email, age) VALUES ('noname@example.com', 20);
+```
+```text
+ERROR:  null value in column "first_name" of relation "students" violates not-null constraint
+DETAIL:  Failing row contains (3, null, null, noname@example.com, null, 20, active, null, f, null, 2026-09-05).
+```
+> These aren't hypothetical — this is Postgres's **actual** error format. In application code, you'd catch these by checking the error's `code` field (e.g., `23505` for unique violations, `23514` for check violations, `23502` for not-null violations) rather than parsing the message text.
 
 ## Breaking down every constraint (the "why", not just the syntax)
 - **`SERIAL PRIMARY KEY`**: `SERIAL` is not really a separate type — it's an `INT` that Postgres auto-increments by 1 starting from 1, on every insert. `PRIMARY KEY` on top of that marks the column as the constraint used to uniquely identify a row (get used heavily when joining tables) — it can **never be NULL** and **never be duplicated**.
@@ -67,13 +123,37 @@ CREATE TABLE students (
 -- Add a new column after the table already exists
 ALTER TABLE students
 ADD COLUMN batch_name VARCHAR(50) DEFAULT 'Web Dev 2026';
+```
+```text
+ALTER TABLE
+```
+```sql
+SELECT student_id, first_name, batch_name FROM students;
+```
+```text
+ student_id | first_name |  batch_name
+------------+------------+---------------
+          1 | John       | Web Dev 2026
+(1 row)
+```
+> The existing row (`John`) instantly got the new column back-filled with the `DEFAULT` value — `ALTER TABLE ... ADD COLUMN ... DEFAULT ...` applies the default retroactively to every row that already existed.
 
+```sql
 -- Add a CHECK constraint after the fact
 ALTER TABLE submissions
 ADD CONSTRAINT check_link_format CHECK (submission_link LIKE 'http%');
+```
+```text
+ALTER TABLE
+```
+> If any **existing** row already violates the new constraint, this statement itself fails with a `check constraint is violated by some row` error — Postgres validates all current data before accepting the new rule.
 
+```sql
 -- Remove a constraint
 ALTER TABLE submissions DROP CONSTRAINT check_link_format;
+```
+```text
+ALTER TABLE
 ```
 `ALTER` means either adding or removing structure from an already-created table — you use it constantly as requirements evolve (e.g., "oops, we forgot a `batch_name` column").
 

@@ -12,6 +12,17 @@ A structured checklist for "this query is slow, how do I speed it up" — the ac
 EXPLAIN ANALYZE
 SELECT * FROM employees WHERE department = 'Engineering' AND salary > 50000;
 ```
+```text
+                                        QUERY PLAN
+--------------------------------------------------------------------------------------------
+ Seq Scan on employees  (cost=0.00..1.10 rows=3 width=72) (actual time=0.015..0.019 rows=4 loops=1)
+   Filter: (((department)::text = 'Engineering'::text) AND (salary > 50000))
+   Rows Removed by Filter: 4
+ Planning Time: 0.089 ms
+ Execution Time: 0.041 ms
+```
+> On a tiny 8-row table like our seeded `employees`, `Seq Scan` is completely fine — Postgres's own planner would actually **reject** an index here even if one existed, because scanning 8 rows directly is cheaper than consulting an index structure first. This matters: `EXPLAIN ANALYZE` output only becomes a real red flag once the row count is large (thousands to millions) — see [06-Indexing-Query-Performance-Internals.md](06-Indexing-Query-Performance-Internals.md) for the same query pattern at 1,000,000 rows, where the difference between `Seq Scan` and `Index Scan` becomes dramatic (~52ms vs ~0.06ms).
+
 - **`EXPLAIN`** shows the *planned* execution strategy without running the query.
 - **`EXPLAIN ANALYZE`** actually **runs** the query and shows real timing alongside the plan — use this one when optimizing (be cautious running it on a heavy `INSERT`/`UPDATE`/`DELETE` in production, since it actually executes the statement).
 - What to look for in the output:
@@ -118,11 +129,25 @@ The query planner's decisions (Seq Scan vs Index Scan, join order, etc.) are bas
 ```sql
 -- SLOW: one round-trip per row
 INSERT INTO students (first_name) VALUES ('A');
+```
+```text
+INSERT 0 1
+```
+```sql
 INSERT INTO students (first_name) VALUES ('B');
-
+```
+```text
+INSERT 0 1
+```
+```sql
 -- FAST: one round-trip, many rows
 INSERT INTO students (first_name) VALUES ('A'), ('B'), ('C');
 ```
+```text
+INSERT 0 3
+```
+> Both approaches produce identical data, but the batched version is a **single** network round-trip to the database instead of three. On a local database the difference is invisible; over a real network (app server → managed cloud database) each round trip can cost 1–5ms just in latency — looping 1,000 single-row inserts from application code can easily turn a sub-second batch operation into several seconds.
+
 This matters enormously from application code — looping and firing one `INSERT`/`UPDATE` per iteration is one of the most common real-world performance bugs; batch it into a single statement whenever possible.
 
 ## Optimization checklist (in the order to actually try them)
