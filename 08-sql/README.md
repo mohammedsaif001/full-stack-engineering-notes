@@ -29,6 +29,7 @@ Every file follows the same shape: a **📌 Executive Summary**, a **🧠 Core A
 | 16 | [Query Optimization Playbook](16-Query-Optimization-Playbook.md) | Work a slow query, in order, from measurement to caching |
 | 17 | [Classic Interview Query Patterns](17-Interview-Query-Patterns.md) | Solve the ~12 queries every SQL interview asks — Nth highest, duplicates, self-joins, pivots, gaps |
 | 18 | [Cheat Sheet & Quick Reference](18-Cheat-Sheet-Quick-Reference.md) | Recall the whole series on one page before an interview |
+| 19 | [**ORMs — Drizzle & Prisma**](19-ORM/README.md) | Stop hand-writing SQL in app code: what an ORM is, why, migrations, and full Drizzle **and** Prisma setups for Express + Postgres (schema, CRUD, relations, transactions, a real router) |
 
 ---
 
