@@ -1,7 +1,9 @@
 import {createServer} from 'node:http';
 import { expressApplication } from './app/index.js';
+import 'dotenv/config';
 
-const PORT =process.env.PORT || 4000
+const PORT = process.env.PORT || 4000
+
 
 async function main() {
   try {
