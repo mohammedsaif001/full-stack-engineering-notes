@@ -1,6 +1,6 @@
-import {createServer} from 'node:http';
-import { expressApplication } from './app/index.js';
 import 'dotenv/config';
+import { createServer } from 'node:http';
+import { expressApplication } from './app/index.js';
 
 const PORT = process.env.PORT || 4000
 
