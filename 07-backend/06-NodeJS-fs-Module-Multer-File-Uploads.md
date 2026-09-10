@@ -700,17 +700,12 @@ app.post("/me/media", (req, res, next) => {
 
 ### 7.1 Handling `MulterError` — the Real Codes
 
-A common hand-rolled error handler looks like this — and has three bugs:
+When multer rejects an upload it calls the middleware callback with a `multer.MulterError` whose `.code` tells you what failed. Invoke the middleware manually so you can intercept that error:
 
 ```javascript
-// ❌ buggy version
-upload.single("file")(res, res, (err) => {   // BUG 1: first arg must be `req`, not `res`
-  if (err?.code === "LIMIT_FILE_SIZE")  { ... }
-  if (err?.code === "LIMIT_FILE_TYPES") { ... }   // BUG 2: "LIMIT_FILE_TYPES" is not a real multer code
-  if (err?.code === "LIMIT_FILE_COUNT") { ... }   // (this one IS real)
-  if (err?.code === "LIMIT_FILE_SIZE")  { ... }   // BUG 3: LIMIT_FILE_SIZE checked four times,
-  if (err?.code === "LIMIT_FILE_SIZE")  { ... }   //         and there is no branch for the
-  if (err?.code === "LIMIT_FILE_SIZE")  { ... }   //         real LIMIT_UNEXPECTED_FILE (wrong type)
+upload.single("file")(req, res, (err) => {   // note: (req, res, cb)
+  if (err) return next(err);                  // hand off to your error mapper
+  // ...success
 });
 ```
 
