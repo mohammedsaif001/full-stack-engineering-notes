@@ -75,7 +75,6 @@ import fsp from "node:fs/promises";  // promise-based APIs (await)
 Every `*Sync` call **halts the whole process** until the disk responds. No other request, timer, or callback runs in the meantime.
 
 ```javascript
-// scratchpad/fs-sync.js — annotated
 import fs from "node:fs";
 
 // 1. WRITE — creates or overwrites the file
@@ -123,7 +122,7 @@ fs.readFile("async.txt", "utf-8", (err, data) => {
 });
 ```
 
-**Callback hell** — from `scratchpad/fs-async.js`. Each step depends on the previous, so callbacks nest into a rightward "pyramid of doom":
+**Callback hell** — when each step depends on the previous, callbacks nest into a rightward "pyramid of doom":
 
 ```javascript
 fs.readFile("a.txt", "utf-8", (error, data) => {
@@ -417,7 +416,6 @@ app.post("/upload", upload.single("file"), (req, res) => {
 ### 5.2 `multer.diskStorage({ destination, filename })` — Streamed to Disk
 
 ```javascript
-// scratchpad/multer-practice.js — annotated
 import multer from "multer";
 import crypto from "crypto";
 import path from "node:path";
@@ -486,7 +484,7 @@ app.post("/upload", upload.single("file"), (req, res) => {
 
 This re-implements what `diskStorage` does — useful when you need to **inspect or transform** the buffer first (validate magic numbers, resize an image, virus-scan) and only then decide to persist it.
 
-Building on comment #3 in the scratchpad (`upload.fields([{ avatar }, { gallery }])`) plus the `memoryStorage` block (comment #5):
+The pattern: use `memoryStorage` to get `file.buffer`, then in the handler generate a safe name, build a path, ensure the directory, and `fs.writeFile` the raw bytes.
 
 ```javascript
 import express from "express";
@@ -702,10 +700,10 @@ app.post("/me/media", (req, res, next) => {
 
 ### 7.1 Handling `MulterError` — the Real Codes
 
-The scratchpad `/upload-with-error` block has two bugs:
+A common hand-rolled error handler looks like this — and has three bugs:
 
 ```javascript
-// ❌ scratchpad version
+// ❌ buggy version
 upload.single("file")(res, res, (err) => {   // BUG 1: first arg must be `req`, not `res`
   if (err?.code === "LIMIT_FILE_SIZE")  { ... }
   if (err?.code === "LIMIT_FILE_TYPES") { ... }   // BUG 2: "LIMIT_FILE_TYPES" is not a real multer code
@@ -729,8 +727,8 @@ upload.single("file")(res, res, (err) => {   // BUG 1: first arg must be `req`, 
 │ LIMIT_FIELD_VALUE      │ A field value exceeded limits.fieldSize      │
 │ LIMIT_FIELD_COUNT      │ More non-file fields than limits.fields      │
 │ LIMIT_UNEXPECTED_FILE  │ A file arrived on a field multer wasn't      │
-│                        │ told to expect (also what we throw from      │
-│                        │ fileFilter for a wrong type)                 │
+│                        │ told to expect (and the idiomatic code to    │
+│                        │ raise from fileFilter for a wrong type)      │
 └────────────────────────┴──────────────────────────────────────────────┘
 ```
 
