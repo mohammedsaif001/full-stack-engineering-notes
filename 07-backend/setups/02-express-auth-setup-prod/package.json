@@ -5,10 +5,10 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start":"node server.js",
-    "dev":"node --watch server.js",
-    "db:up":"docker compose up -d",
-    "db:down":"docker compose down"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
   },
   "author": "",
   "license": "ISC",
@@ -20,6 +20,7 @@
     "joi": "^18.2.5",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.3",
+    "multer": "^2.3.0",
     "nodemailer": "^9.0.5"
   }
 }
