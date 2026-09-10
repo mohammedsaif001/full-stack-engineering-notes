@@ -700,12 +700,35 @@ app.post("/me/media", (req, res, next) => {
 
 ### 7.1 Handling `MulterError` — the Real Codes
 
-When multer rejects an upload it calls the middleware callback with a `multer.MulterError` whose `.code` tells you what failed. Invoke the middleware manually so you can intercept that error:
+When multer rejects an upload it calls the middleware callback with a `multer.MulterError` whose `.code` tells you exactly what failed. Invoke the middleware manually (call the result of `upload.single(...)` yourself) so you can branch on `err.code`:
 
 ```javascript
-upload.single("file")(req, res, (err) => {   // note: (req, res, cb)
-  if (err) return next(err);                  // hand off to your error mapper
-  // ...success
+import multer from "multer";
+
+app.post("/upload", (req, res, next) => {
+  upload.single("file")(req, res, (err) => {   // (req, res, cb)
+    if (err instanceof multer.MulterError) {
+      // a multer limit was hit — err.code says which one
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: "File is too large" });
+      }
+      if (err.code === "LIMIT_FILE_COUNT") {
+        return res.status(400).json({ error: "Too many files" });
+      }
+      if (err.code === "LIMIT_UNEXPECTED_FILE") {
+        return res.status(400).json({ error: `Unexpected file on field "${err.field}"` });
+      }
+      return res.status(400).json({ error: `Upload error: ${err.code}` });
+    }
+
+    if (err) {
+      // a non-multer error (e.g. thrown from fileFilter) — has a message, no code
+      return res.status(400).json({ error: err.message });
+    }
+
+    // no error → req.file is ready
+    return res.status(200).json({ message: "Uploaded successfully" });
+  });
 });
 ```
 
@@ -727,7 +750,7 @@ upload.single("file")(req, res, (err) => {   // note: (req, res, cb)
 └────────────────────────┴──────────────────────────────────────────────┘
 ```
 
-**Corrected handler**, wired to `ApiError`:
+**Same logic factored into a reusable mapper**, wired to `ApiError` so every upload route stays one line:
 
 ```javascript
 import multer from "multer";
@@ -750,7 +773,7 @@ function mapMulterError(err) {
 }
 
 app.post("/upload", (req, res, next) => {
-  upload.single("file")(req, res, (err) => {   // ✅ (req, res, cb)
+  upload.single("file")(req, res, (err) => {
     if (err) return next(mapMulterError(err));
     return ApiResponse.ok(res, "Uploaded successfully");
   });
