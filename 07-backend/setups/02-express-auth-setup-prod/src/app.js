@@ -8,6 +8,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+app.get("/health", (req, res) => {
+  return res.status(200).json({ message: "Application Health is Fine" });
+});
 app.use("/api/auth", authRoute);
 
 // Catch-all for undefined routes
