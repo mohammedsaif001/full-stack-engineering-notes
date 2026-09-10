@@ -25,6 +25,10 @@ const userSchema = new mongoose.Schema({
       enum: ["customer", "admin", "seller", "support"],
       default: "customer",
     },
+    avatar: {
+      type: String,
+      default: false,
+    },
     verificationToken: { type: String, select: false },
     refreshToken: { type: String, select: false },
     resetPasswordToken: { type: String, select: false },

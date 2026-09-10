@@ -1,10 +1,11 @@
 import * as authService from "./auth.service.js";
 import ApiResponse from "../../common/utils/api-response.js";
+import ApiError from "../../common/utils/api-error.js";
 
 const register = async (req, res) => {
-    const user = await authService.register(req.body);
-    ApiResponse.created(res, "User registered successfully",user);
-}
+  const user = await authService.register(req.body);
+  ApiResponse.created(res, "User registered successfully", user);
+};
 
 const refreshToken = async (req, res) => {
   const token = req.cookies?.refreshToken;
@@ -13,19 +14,18 @@ const refreshToken = async (req, res) => {
 };
 
 const login = async (req, res) => {
+  const { user, accessToken, refreshToken } = await authService.login(req.body);
 
-    const { user, accessToken, refreshToken } = await authService.login(req.body);
-    
-    // Refresh token goes in httpOnly cookie — not accessible to JS
-    res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // Only send cookie over HTTPS in production
-        sameSite: 'strict', // CSRF protection
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    })
+  // Refresh token goes in httpOnly cookie — not accessible to JS
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production", // Only send cookie over HTTPS in production
+    sameSite: "strict", // CSRF protection
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  });
 
-    ApiResponse.ok(res, "Logged in successfully", { user, accessToken });   
-}
+  ApiResponse.ok(res, "Logged in successfully", { user, accessToken });
+};
 
 const logout = async (req, res) => {
   await authService.logout(req.user.id);
@@ -53,12 +53,36 @@ const getMe = async (req, res) => {
   ApiResponse.ok(res, "User profile", user);
 };
 
+const uploadAvatar = async (req, res) => {
+  try {
+    const file = req.file;
+
+    if (!file) {
+      return ApiError.badRequest(
+        res,
+        "No file uploaded. please send file with field name 'avatar'",
+      );
+    }
+
+    const result = await authService.avatarUpload(req.user.id, file);
+
+    return ApiResponse.ok(res, "Avatar uploaded successfully", {
+      avatarUrl: result.url,
+    });
+  } catch (error) {
+    console.error("Upload error:", error);
+    return ApiError.internal(res, error.message || "Failed to upload avatar");
+  }
+};
+
 export {
-    register,
+  register,
   login,
   refreshToken,
   logout,
   verifyEmail,
   forgotPassword,
   resetPassword,
-  getMe,}
+  getMe,
+  uploadAvatar,
+};
