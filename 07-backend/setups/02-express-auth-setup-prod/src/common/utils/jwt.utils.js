@@ -24,7 +24,7 @@ const verifyRefreshToken = (token) => {
 }
 
 // Hash refresh token before storing — same approach as reset tokens -  Explain letter what it does and why it is important
-const hashToken = (token) => crypto.createHas("sha256").update(token).digest("hex");
+const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
 
 const generateResetToken = () => {

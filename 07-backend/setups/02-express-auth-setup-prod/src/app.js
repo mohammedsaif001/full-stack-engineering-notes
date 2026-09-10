@@ -1,8 +1,8 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import authRoute from "./modules/auth/auth.routes.js";
-
 import ApiError from "./common/utils/api-error.js";
+import errorHandler from "./common/middleware/error.middleware.js";
 
 const app = express();
 
@@ -17,8 +17,11 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoute);
 
 // Catch-all for undefined routes
-app.all("{*path}", (req, res) => {
-  throw ApiError.notfound(`Route ${req.originalUrl} not found`);
+app.use((req, res, next) => {
+  next(ApiError.notFound(`Route ${req.originalUrl} not found`));
 });
+
+// Centralized Global Error Handling Middleware
+app.use(errorHandler);
 
 export default app;

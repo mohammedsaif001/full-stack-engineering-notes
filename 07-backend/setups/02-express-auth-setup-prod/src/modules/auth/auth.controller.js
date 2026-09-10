@@ -1,79 +1,71 @@
 import * as authService from "./auth.service.js";
 import ApiResponse from "../../common/utils/api-response.js";
 import ApiError from "../../common/utils/api-error.js";
+import asyncHandler from "../../common/utils/async-handler.js";
 
-const register = async (req, res) => {
+const register = asyncHandler(async (req, res) => {
   const user = await authService.register(req.body);
-  ApiResponse.created(res, "User registered successfully", user);
-};
+  return ApiResponse.created(res, "User registered successfully", user);
+});
 
-const refreshToken = async (req, res) => {
+const refreshToken = asyncHandler(async (req, res) => {
   const token = req.cookies?.refreshToken;
   const { accessToken } = await authService.refresh(token);
-  ApiResponse.ok(res, "Token refreshed", { accessToken });
-};
+  return ApiResponse.ok(res, "Token refreshed", { accessToken });
+});
 
-const login = async (req, res) => {
+const login = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await authService.login(req.body);
 
-  // Refresh token goes in httpOnly cookie — not accessible to JS
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // Only send cookie over HTTPS in production
-    sameSite: "strict", // CSRF protection
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
-  ApiResponse.ok(res, "Logged in successfully", { user, accessToken });
-};
+  return ApiResponse.ok(res, "Logged in successfully", { user, accessToken });
+});
 
-const logout = async (req, res) => {
+const logout = asyncHandler(async (req, res) => {
   await authService.logout(req.user.id);
   res.clearCookie("refreshToken");
-  ApiResponse.ok(res, "Logged out successfully");
-};
+  return ApiResponse.ok(res, "Logged out successfully");
+});
 
-const verifyEmail = async (req, res) => {
+const verifyEmail = asyncHandler(async (req, res) => {
   await authService.verifyEmail(req.params.token);
-  ApiResponse.ok(res, "Email verified successfully");
-};
+  return ApiResponse.ok(res, "Email verified successfully");
+});
 
-const forgotPassword = async (req, res) => {
+const forgotPassword = asyncHandler(async (req, res) => {
   await authService.forgotPassword(req.body.email);
-  ApiResponse.ok(res, "Password reset email sent");
-};
+  return ApiResponse.ok(res, "Password reset email sent");
+});
 
-const resetPassword = async (req, res) => {
+const resetPassword = asyncHandler(async (req, res) => {
   await authService.resetPassword(req.params.token, req.body.password);
-  ApiResponse.ok(res, "Password reset successful");
-};
+  return ApiResponse.ok(res, "Password reset successful");
+});
 
-const getMe = async (req, res) => {
+const getMe = asyncHandler(async (req, res) => {
   const user = await authService.getMe(req.user.id);
-  ApiResponse.ok(res, "User profile", user);
-};
+  return ApiResponse.ok(res, "User profile", user);
+});
 
-const uploadAvatar = async (req, res) => {
-  try {
-    const file = req.file;
+const uploadAvatar = asyncHandler(async (req, res) => {
+  const file = req.file;
 
-    if (!file) {
-      return ApiError.badRequest(
-        res,
-        "No file uploaded. please send file with field name 'avatar'",
-      );
-    }
-
-    const result = await authService.avatarUpload(req.user.id, file);
-
-    return ApiResponse.ok(res, "Avatar uploaded successfully", {
-      avatarUrl: result.url,
-    });
-  } catch (error) {
-    console.error("Upload error:", error);
-    return ApiError.internal(res, error.message || "Failed to upload avatar");
+  if (!file) {
+    throw ApiError.badRequest("No file uploaded. Please send file with field name 'avatar'");
   }
-};
+
+  const result = await authService.avatarUpload(req.user.id, file);
+
+  return ApiResponse.ok(res, "Avatar uploaded successfully", {
+    avatarUrl: result.url,
+  });
+});
 
 export {
   register,

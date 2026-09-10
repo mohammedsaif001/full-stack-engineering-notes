@@ -170,7 +170,7 @@ const resetPassword = async (token, newPassword) => {
 };
 
 const getMe = async (userId) => {
-  const user = User.findById(userId);
+  const user = await User.findById(userId);
   if (!user) throw ApiError.notFound("User not found");
   return user;
 };
