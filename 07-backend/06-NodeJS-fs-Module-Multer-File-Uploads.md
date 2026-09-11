@@ -832,3 +832,4 @@ Create `public/uploads/.gitkeep` so the directory exists on a fresh clone (other
 - **`03-NodeJS-Internals-Event-Loop-Libuv-Threadpool.md`** — why async `fs` and streams don't block; the libuv thread pool that runs disk I/O.
 - **`04-Express-Routing-Middleware-Rest-Auth-Architecture.md`** — middleware ordering, which governs where `upload.*` sits in the chain.
 - **`05-Production-Express-Architecture-Auth-DTO-Security.md`** — `ApiResponse` / `ApiError` classes used in the error-handling examples above.
+- **`07-ImageKit-Multer-File-Uploads-To-CDN.md`** — the next step: instead of keeping the parsed file on your own disk, forward it to an external media service / CDN (ImageKit, S3, Cloudinary) and store only a URL. Covers the `memoryStorage`-buffer vs `diskStorage`-temp-file trade-off for that pattern.
