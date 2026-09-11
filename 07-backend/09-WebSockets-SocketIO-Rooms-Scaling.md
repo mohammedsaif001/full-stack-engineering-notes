@@ -394,3 +394,328 @@ Some ecosystems reach for frameworks/platforms specifically built around this pr
 2. Try creating 10,000 checkboxes in a page, attach a change-event listener to each, and wire each one to emit a WebSocket event on toggle — a good hands-on way to feel where the fan-out cost actually shows up.
 3. Push further: try simulating 1,000,000 checkboxes/connections and observe where it breaks first (browser DOM, socket count, server memory).
 4. Write a short note on the Linux file system model (everything is a file) to connect this networking limit back to the OS fundamentals.
+
+---
+
+## 10. Rooms in Depth — Building "WhatsApp Groups" Properly
+
+Everything so far treated a room as "a name you can broadcast to." That's correct, but a real chat-group feature (think a WhatsApp group) needs more: creating the group, adding/removing members, sending only to that group, leaving it, and cleaning up properly when someone disconnects. This section covers the full lifecycle.
+
+### 10.1 Every socket is already in a room — its own
+
+The moment a socket connects, Socket.IO automatically puts it in a room named after its own `socket.id`. This is why `io.to(socketId).emit(...)` works for "send to one specific client" — you're technically just emitting to a room that happens to contain exactly one socket. Rooms aren't a separate concept bolted onto sockets; targeting one socket and targeting a group are **the same mechanism**.
+
+### 10.2 Creating a "group" — joining a custom room
+
+A WhatsApp group is really just: a room name, and a list of sockets that have joined it.
+
+```javascript
+// server
+socket.on("group:create", ({ groupId, memberSocketIds }) => {
+  // group creator joins
+  socket.join(`group:${groupId}`);
+
+  // (in a real app you'd look up each member's CURRENT socket id from a
+  // userId -> socketId map, since a raw socket id from the client can't be trusted)
+  memberSocketIds.forEach((id) => {
+    const memberSocket = io.sockets.sockets.get(id);
+    memberSocket?.join(`group:${groupId}`);
+  });
+
+  io.to(`group:${groupId}`).emit("group:created", { groupId });
+});
+```
+
+**Naming convention**: prefix room names by type (`group:123`, `user:456`, `doc:789`) so you never accidentally collide a group id with a user id or a document id in the same namespace.
+
+### 10.3 Sending a message only to that group
+
+```javascript
+socket.on("group:message", ({ groupId, text }) => {
+  io.to(`group:${groupId}`).emit("group:message", {
+    groupId,
+    from: socket.id,
+    text,
+    time: Date.now(),
+  });
+});
+```
+
+Note this uses `io.to(...)`, not `socket.broadcast.to(...)` — the sender is a group member too and, just like in WhatsApp, **should see their own message appear** (usually rendered instantly client-side on send, then confirmed/reconciled when the server echo arrives).
+
+### 10.4 Leaving a group
+
+```javascript
+socket.on("group:leave", ({ groupId }) => {
+  socket.leave(`group:${groupId}`);
+  io.to(`group:${groupId}`).emit("group:memberLeft", { socketId: socket.id });
+});
+```
+
+### 10.5 Who's in the group right now?
+
+```javascript
+const room = io.sockets.adapter.rooms.get(`group:${groupId}`);
+const memberCount = room ? room.size : 0;
+```
+
+### 10.6 The pitfall: rooms don't survive reconnects the way you'd assume
+
+**This is the single most common bug junior engineers hit with rooms.** A `socket.id` is only valid for the lifetime of that specific TCP/WebSocket connection. Refresh the page, lose wifi for a second, or have the server restart — the client reconnects with a **brand new `socket.id`**, and it is in **zero rooms** again, including its own former groups.
+
+```javascript
+// WRONG assumption: "the user rejoins their groups automatically"
+// Reality: they don't. You must rejoin them explicitly on every (re)connect.
+
+io.on("connection", async (socket) => {
+  const userId = socket.handshake.auth?.userId; // sent by client on connect
+  const groupIds = await getGroupsForUser(userId); // your own DB lookup
+
+  groupIds.forEach((groupId) => socket.join(`group:${groupId}`));
+});
+```
+
+**Good practice**: never treat room membership as durable state on its own. The **source of truth for "who is in this group" is your database** (a `group_members` table/collection). Room joins are just an **in-memory cache of that truth for the current connection**, rebuilt every time a socket connects. If your server restarts, every room membership resets to empty until clients reconnect and rejoin.
+
+### 10.7 Cleanup on disconnect
+
+You don't need to manually call `socket.leave()` for every room on disconnect — Socket.IO does this automatically and fires this internally before your `disconnect` handler runs. What you usually *do* need to do manually is business-logic cleanup:
+
+```javascript
+socket.on("disconnect", () => {
+  // Socket.IO already removed this socket from all its rooms by this point.
+  // You still need to tell other group members this user went offline:
+  const groupsTheyWereIn = getGroupsForSocket(socket.id); // your own tracking
+  groupsTheyWereIn.forEach((groupId) => {
+    io.to(`group:${groupId}`).emit("group:memberOffline", { socketId: socket.id });
+  });
+});
+```
+
+---
+
+## 11. Concurrency — Three Different Problems That Get Lumped Together
+
+"Concurrency" in a WebSocket system isn't one issue — it's three separate problems that show up at different scales. A senior engineer should be able to name which one they're dealing with.
+
+### 11.1 Problem 1 — Multiple Server Instances (Horizontal Scaling)
+
+The single biggest concurrency trap: **everything shown so far only works if there's exactly one server process.**
+
+If you run two instances of your Node server behind a load balancer:
+
+```
+                     ┌──────────────┐
+Client A ──────────► │  Server  #1  │ ← Client A's socket lives HERE
+                     └──────────────┘
+                     ┌──────────────┐
+Client B ──────────► │  Server  #2  │ ← Client B's socket lives HERE
+                     └──────────────┘
+```
+
+If Client A emits a message and your handler does `io.emit(...)` or `io.to("group:123").emit(...)`, **that only reaches sockets connected to Server #1.** Server #2 has no idea the event happened — Client B never receives it, even though they're in the same group. `io`'s in-memory room registry is **per-process**, not shared across instances.
+
+**The fix: the Socket.IO Redis Adapter.** Each server instance connects to a shared Redis instance; when one instance calls `io.emit(...)` or `io.to(room).emit(...)`, the adapter publishes that event through Redis pub/sub, and **every** server instance receives it and forwards it to its own locally-connected sockets.
+
+```javascript
+import { createAdapter } from "@socket.io/redis-adapter";
+import { createClient } from "redis";
+
+const pubClient = createClient({ url: process.env.REDIS_URL });
+const subClient = pubClient.duplicate();
+
+await Promise.all([pubClient.connect(), subClient.connect()]);
+
+io.adapter(createAdapter(pubClient, subClient));
+// From here on, io.to(room).emit(...) reaches sockets on ANY server instance.
+```
+
+**Sticky sessions**: if you're using long-polling as a fallback transport (Socket.IO does this by default when WebSocket upgrade fails), a single logical connection can be made of multiple underlying HTTP requests — these **must** be routed to the same server instance, or the handshake breaks. Your load balancer needs **sticky sessions** (session affinity, usually by cookie or source IP) configured. Pure WebSocket-only connections don't strictly need this once upgraded, but the initial handshake sequence still benefits from it, and Socket.IO's own docs require it unless you disable the polling transport entirely.
+
+### 11.2 Problem 2 — Race Conditions Inside a Single Connection
+
+Each socket's event handlers can run concurrently if they're `async`. Two events arriving close together on the *same* socket can interleave in ways you don't expect if a handler does a slow operation (DB call) before finishing its work.
+
+```javascript
+// BUGGY: two rapid "group:join" events for the same user could both pass
+// the "already a member?" check before either one finishes writing to the DB
+socket.on("group:join", async ({ groupId }) => {
+  const alreadyMember = await db.isMember(socket.userId, groupId); // slow
+  if (!alreadyMember) {
+    await db.addMember(socket.userId, groupId); // both calls can reach here
+  }
+});
+```
+
+**Fix patterns**:
+- Make the DB operation itself idempotent (`INSERT ... ON CONFLICT DO NOTHING` / upsert) instead of "check-then-write."
+- Or maintain a simple in-memory lock/queue per user for critical sections if the DB can't be made idempotent.
+
+```javascript
+// Idempotent version — no race window, regardless of arrival order
+socket.on("group:join", async ({ groupId }) => {
+  await db.addMemberIfNotExists(socket.userId, groupId); // atomic upsert
+});
+```
+
+### 11.3 Problem 3 — Backpressure (a Slow Client Can't Keep Up)
+
+If your server emits data faster than a client can consume it (e.g. a live feed, bulk history replay, a slow mobile connection), the data queues up in Socket.IO's internal buffer for that socket. This buffer **isn't unlimited** — if it keeps growing because the client never catches up, that socket accumulates memory that never frees, effectively becoming a slow memory leak per bad connection, multiplied across every slow client.
+
+**Good practices**:
+- **Don't blast large payloads/history over the socket in one shot.** Paginate — send the last N messages via a normal HTTP/REST call on load, use the socket only for genuinely live/incremental updates.
+- **Throttle high-frequency emits** (e.g. typing indicators, cursor position, live metrics) — emit at a fixed interval (e.g. every 100–200ms) rather than on every single underlying event.
+- **Use acknowledgements for anything that must be confirmed delivered** (see §12.4) instead of assuming a fire-and-forget `emit` always lands immediately.
+- **Set `maxHttpBufferSize`** (a Socket.IO server option) to cap the maximum size of a single incoming message, so one misbehaving/malicious client can't send a huge payload and blow up server memory.
+
+```javascript
+const io = new Server(server, {
+  maxHttpBufferSize: 1e6, // 1 MB cap per message
+});
+```
+
+---
+
+## 12. Error Handling — Connection-Level and Application-Level
+
+### 12.1 Connection-level errors (the handshake itself fails)
+
+```javascript
+// client
+const socket = io({
+  auth: { token: getUserAuthToken() },
+});
+
+socket.on("connect_error", (err) => {
+  // fires when the initial connection/handshake fails —
+  // wrong URL, server down, or rejected by server-side auth middleware
+  console.error("Could not connect:", err.message);
+});
+```
+
+### 12.2 Authenticating a connection (and rejecting bad ones cleanly)
+
+A WebSocket connection isn't a normal HTTP request-per-call, so you can't just check auth per request — you authenticate **once, at handshake time**, using Socket.IO middleware:
+
+```javascript
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    return next(new Error("Authentication required"));
+  }
+
+  try {
+    const claims = verifyJwt(token, publicKey); // from note 08
+    socket.userId = claims.sub; // stash it on the socket for later handlers
+    next();
+  } catch {
+    next(new Error("Invalid or expired token"));
+  }
+});
+```
+
+If `next(new Error(...))` is called, the connection is refused, and the client's `connect_error` handler above fires with that message. **This is the correct place to authenticate a socket** — not inside individual event handlers.
+
+### 12.3 Reconnection behavior (built in, but worth knowing)
+
+The client automatically retries with backoff by default. You can tune it:
+
+```javascript
+const socket = io({
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,       // start at 1s
+  reconnectionDelayMax: 5000,    // cap backoff at 5s
+});
+
+socket.on("reconnect_attempt", (attempt) => console.log("Retrying…", attempt));
+socket.on("reconnect_failed", () => console.log("Gave up reconnecting"));
+```
+
+Remember §10.6: a reconnect means a new `socket.id` and empty room membership — your `connection` handler needs to rejoin the user's rooms from the DB every time, not just on first connect.
+
+### 12.4 Application-level errors — inside event handlers
+
+**Never let an event handler throw unhandled.** Unlike an Express route, there's no global error middleware catching it for you by default — an uncaught exception inside a synchronous handler can crash the process, and inside an async handler it becomes a silent unhandled rejection.
+
+```javascript
+socket.on("group:message", async ({ groupId, text }) => {
+  try {
+    if (!text || text.length > 2000) {
+      throw new Error("Message must be 1–2000 characters");
+    }
+    await saveMessage(groupId, socket.userId, text);
+    io.to(`group:${groupId}`).emit("group:message", { groupId, from: socket.userId, text });
+  } catch (err) {
+    // report the error back to the SENDER only, not the whole room
+    socket.emit("error", { context: "group:message", message: err.message });
+  }
+});
+```
+
+### 12.5 Acknowledgements — getting a real success/failure result back
+
+A plain `emit` is fire-and-forget — you don't know if it was received or processed. For anything where the sender needs confirmation (message actually saved, group actually joined), use an **acknowledgement callback**, which behaves like a mini request/response over the socket:
+
+```javascript
+// client
+socket.emit("group:message", { groupId, text }, (response) => {
+  if (response.ok) {
+    console.log("Delivered, id:", response.messageId);
+  } else {
+    console.error("Failed:", response.error);
+  }
+});
+```
+
+```javascript
+// server
+socket.on("group:message", async ({ groupId, text }, callback) => {
+  try {
+    if (!text) throw new Error("Empty message");
+    const saved = await saveMessage(groupId, socket.userId, text);
+    io.to(`group:${groupId}`).emit("group:message", saved);
+    callback?.({ ok: true, messageId: saved.id });
+  } catch (err) {
+    callback?.({ ok: false, error: err.message });
+  }
+});
+```
+
+Use acknowledgements for anything that changes state (sending a message, joining a group, marking as read) — reserve plain `emit` for pure broadcast/notification traffic where no individual confirmation is needed (typing indicators, presence pings).
+
+### 12.6 Good practices summary (senior checklist)
+
+- **Authenticate at the handshake** (`io.use` middleware), not inside individual handlers.
+- **Treat the database as the source of truth for room membership** — rejoin rooms from the DB on every connect, never assume rooms persist across reconnects.
+- **Wrap every async handler body in try/catch**, and report failures back to the sender via `socket.emit("error", ...)` or an acknowledgement callback — never let a handler throw unhandled.
+- **Use acknowledgement callbacks for anything that must be confirmed** (message sent, group joined); use plain `emit` only for best-effort/broadcast traffic.
+- **Make "check then write" operations idempotent** (upsert) instead of relying on ordering between concurrent events from the same client.
+- **Deploy the Redis adapter (or equivalent) the moment you run more than one server instance** — without it, rooms and broadcasts silently only work for whoever happens to be on the same instance as the sender, which is a very easy bug to miss in local dev (where there's always exactly one instance) and only surfaces in production.
+- **Configure sticky sessions on the load balancer** if long-polling fallback is enabled.
+- **Cap payload size** (`maxHttpBufferSize`) and **throttle high-frequency emits** to protect against backpressure/memory growth from slow or malicious clients.
+- **Namespace room names by type** (`group:`, `user:`, `doc:`) to avoid id collisions across different kinds of rooms.
+
+---
+
+## 13. Extended Quick Reference
+
+| Term | One-line meaning |
+|---|---|
+| Default per-socket room | Every socket auto-joins a room named after its own `socket.id` — this is how `io.to(socketId)` works. |
+| `socket.leave(room)` | Removes the socket from a room; happens automatically for all rooms on disconnect. |
+| `io.sockets.adapter.rooms.get(room)` | Inspect current membership/size of a room. |
+| Redis adapter | Lets `io.emit`/`io.to(room).emit` reach sockets connected to **other server instances**, via Redis pub/sub — required once you run more than one server process. |
+| Sticky sessions | Load-balancer setting that keeps a client's polling-transport requests routed to the same server instance during handshake. |
+| Race condition (per-socket) | Two concurrent async events on the same socket both passing a stale check before either finishes writing — fix with idempotent writes, not more checks. |
+| Backpressure | A slow client can't keep up with server emits, causing the socket's internal send buffer to grow — mitigate with pagination, throttling, and payload caps. |
+| `io.use(middleware)` | Runs once per socket at handshake time — the correct place to authenticate a connection. |
+| `connect_error` | Client-side event fired when the handshake itself is rejected or fails. |
+| Acknowledgement callback | An `emit(event, data, callback)` pattern that gives you a real success/failure response, unlike fire-and-forget `emit`. |
+
+### Suggested hands-on assignments (advanced)
+1. Run two instances of your chat server locally on different ports, put them behind a simple round-robin proxy, and reproduce the "message doesn't reach everyone" bug — then fix it with the Redis adapter and confirm it now works.
+2. Build the WhatsApp-style group flow end to end: create group, add/remove members, send group-only messages, leave group, and correctly rejoin all of a user's groups after a forced reconnect (kill and restart the server while a client is connected).
+3. Add `io.use` handshake authentication using the JWT/public-key verification from note 08, and confirm an invalid token is rejected at connection time, not inside a handler.
+4. Deliberately trigger a race: fire two `group:join` events for the same user back-to-back and prove the "check then write" version double-inserts, then fix it with an idempotent upsert.
+5. Add acknowledgement callbacks to `group:message` and simulate a save failure (throw inside the handler) — confirm the sender sees the failure and no other group member receives the broken message.
