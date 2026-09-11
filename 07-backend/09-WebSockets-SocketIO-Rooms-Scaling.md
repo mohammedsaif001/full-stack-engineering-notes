@@ -30,6 +30,33 @@ User ◄────── Server
 
 A **WebSocket** is a connection that stays open and is **duplex** — data can flow **both directions at the same time** (client ⇄ server), over the same long-lived connection, without the client re-asking every time.
 
+### How Connection Starts: The HTTP `101 Switching Protocols` Handshake
+
+WebSockets don't start on a separate port or protocol from scratch. Every WebSocket connection begins as a standard HTTP request and upgrades:
+
+1. **Client Requests Protocol Upgrade**:
+   The browser sends a standard HTTP `GET` request with upgrade headers:
+   ```http
+   GET /socket.io/?transport=websocket HTTP/1.1
+   Host: localhost:4214
+   Connection: Upgrade
+   Upgrade: websocket
+   Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+   Sec-WebSocket-Version: 13
+   ```
+
+2. **Server Responds with `101 Switching Protocols`**:
+   If the server agrees to switch protocols, it responds with status code **`101`**:
+   ```http
+   HTTP/1.1 101 Switching Protocols
+   Upgrade: websocket
+   Connection: Upgrade
+   Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+   ```
+
+3. **Protocol Switched**:
+   From status `101` onward, HTTP is turned off on that TCP socket. The connection remains open for low-latency, two-way frame transmission.
+
 ## 3. Socket.IO — A Library Built on Top of WebSockets
 
 **Socket.IO** is a library that wraps the raw WebSocket protocol and adds a higher-level abstraction on top of it. It gives you:
@@ -108,49 +135,126 @@ io.to("room-123").emit("eventName", data); // only sockets in this room receive 
 
 ---
 
-## 5. Setting Up a Socket.IO Chat App — Backend
+## 5. Connection Lifecycle & Core Code Snippets (Quick Reference)
 
-**Step 1 — server setup:**
+### 5.1 How Connection & Disconnection Work
+
+1. **Making a Connection (HTTP 101 Handshake)**:
+   - **Client**: Calling `const socket = io()` in the browser sends an HTTP `GET` request with `Connection: Upgrade` and `Upgrade: websocket` headers.
+   - **Server Handshake**: The server responds with HTTP Status **`101 Switching Protocols`**, upgrading the TCP connection from HTTP to WebSocket.
+   - **Server Listener**: `io.on("connection", (socket) => { ... })` receives the newly upgraded connection and assigns a unique `socket.id`.
+
+2. **Disconnecting / Closing a Connection**:
+   - **Client-side Manual Close**: Call `socket.disconnect()` to manually terminate the connection.
+   - **Automatic Disconnect**: Closing the browser tab, refreshing the page, or losing network connectivity triggers a disconnect.
+   - **Server-side Force Disconnect**: `socket.disconnect(true)` forces a client to disconnect from the server.
+   - **Listening for Disconnect**: Both client and server listen to `socket.on("disconnect", (reason) => { ... })`.
+
+---
+
+### 5.2 Server-Side Code Snippet (`index.js`)
 
 ```javascript
-import http from "http";
-import { Server } from "socket.io";
+import { createServer } from "node:http";
 import express from "express";
+import path from "node:path";
+import { Server } from "socket.io";
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server); // io.attach(server) — binds the WebSocket layer on top of the HTTP server
+app.use(express.static(path.resolve("public")));
 
-server.listen(9000, () => {
-  console.log("Server listening on 9000");
-});
-```
+const server = createServer(app);
+const io = new Server(server); // Binds Socket.IO to HTTP server
 
-**Step 2 — handle new connections:**
-
-```javascript
+// 1. Listen for new client connections
 io.on("connection", (socket) => {
-  // runs every time a new user connects — each socket gets a unique socket.id
-  console.log("A new socket is created/connected", socket.id);
+  console.log("Client connected. Socket ID:", socket.id);
 
+  // 2. Listen for custom events from this client
   socket.on("user:message", (data) => {
-    console.log("Message from socket", data);
-    socket.broadcast.emit("server:message", data);
+    console.log(`Message from ${socket.id}:`, data);
+
+    // Broadcast to ALL connected clients (including sender)
+    io.emit("server:message", {
+      text: data.text,
+      senderId: socket.id,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
   });
 
-  socket.on("user:typing", (data) => {
-    console.log("User is typing", socket.id, data);
-    // don't send the whole message being typed — just notify that typing is happening
-    socket.broadcast.emit("server:user:typing", { id: socket.id });
+  // 3. Listen for client disconnection
+  socket.on("disconnect", (reason) => {
+    console.log(`Client ${socket.id} disconnected. Reason:`, reason);
   });
+});
 
-  socket.on("disconnect", () => {
-    console.log("Socket disconnected", socket.id);
-  });
+server.listen(4214, () => {
+  console.log("Server running on http://localhost:4214");
 });
 ```
 
-**Note:** don't send the raw text as `data.text` on every keystroke for a "typing…" indicator — that's wasteful and leaks the message before it's sent. Just emit the sender's socket id/event so the UI can show "X is typing…" without transmitting the actual content.
+---
+
+### 5.3 Client-Side Code Snippet (`public/index.html`)
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Socket Client Quick Reference</title>
+</head>
+<body>
+  <h1>Socket.IO Quick Chat</h1>
+  
+  <input type="text" id="msgInput" placeholder="Type a message..." />
+  <button id="sendBtn">Send</button>
+  <button id="closeBtn">Disconnect</button>
+
+  <ul id="messages"></ul>
+
+  <!-- 1. Load Socket.IO Client Library -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // 2. Connect to Server
+    const socket = io();
+
+    // 3. Connection Success Event
+    socket.on("connect", () => {
+      console.log("Connected to server! My Socket ID:", socket.id);
+    });
+
+    // 4. Send Message to Server
+    document.getElementById("sendBtn").addEventListener("click", () => {
+      const text = document.getElementById("msgInput").value;
+      if (text) {
+        socket.emit("user:message", { text: text });
+        document.getElementById("msgInput").value = "";
+      }
+    });
+
+    // 5. Receive Message from Server
+    socket.on("server:message", (data) => {
+      const li = document.createElement("li");
+      const isSelf = data.senderId === socket.id;
+      li.textContent = `${isSelf ? 'You' : data.senderId}: ${data.text} (${data.time})`;
+      document.getElementById("messages").appendChild(li);
+    });
+
+    // 6. Manual Close Connection
+    document.getElementById("closeBtn").addEventListener("click", () => {
+      console.log("Closing connection manually...");
+      socket.disconnect(); // Closes WebSocket connection
+    });
+
+    // 7. Handle Disconnection
+    socket.on("disconnect", (reason) => {
+      console.log("Disconnected from server. Reason:", reason);
+    });
+  </script>
+</body>
+</html>
+```
 
 ---
 
