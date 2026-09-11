@@ -7,7 +7,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "dev": "tsc-watch --onSuccess \"node dist/index\""
+    "dev": "tsc-watch --onSuccess \"node dist/index\"",
+    "seed:client": "tsx src/scripts/seed-client.ts"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +17,7 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.6.0",
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
@@ -24,6 +26,7 @@
     "pg": "^8.20.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/node-jose": "^1.1.13",
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
