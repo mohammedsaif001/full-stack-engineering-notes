@@ -19,6 +19,14 @@ const main = async () => {
     // 3. Start listening to this server
     io.on('connection', socket => {
         console.log('A new Socket has connected', socket.id);
+
+        socket.on("user:message", (data) => {
+          console.log("User sent message: ", data);
+
+          socket.emit("server:message", data);
+
+          socket.broadcast.emit("server:message", data);
+        });
     });
 
   app.get("/health", (req, res) => {
