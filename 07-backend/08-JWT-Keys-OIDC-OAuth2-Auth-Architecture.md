@@ -232,3 +232,178 @@ In simple terms:
 
 ### Suggested hands-on assignment
 Build a minimal auth service yourself: sign JWTs with a private key, expose `/.well-known/openid-configuration` and a JWKS route, then build a second small service that fetches the public key once and verifies tokens locally. This is the same underlying shape that hosted providers like Auth0, Clerk, and Better-Auth implement for you.
+
+---
+
+## 13. Implementing OIDC From Scratch — Step by Step
+
+This section walks through actually building the auth service described above, end to end.
+
+### 13.1 `node-jose` — generating and managing keys
+
+`node-jose` is a Node.js library used to **generate, manage, sign, verify, and expose JWTs via JWKS**, following the OIDC/JOSE standards. It's what you'd use instead of hand-rolling RSA key generation yourself.
+
+A typical `cert.js` (or `keys.js`) file reads the public and private key at startup, so the rest of the app never touches raw key files directly — it just imports whatever `cert.js` exports.
+
+```javascript
+// src/config/cert.js
+import fs from "fs";
+
+export const privateKey = fs.readFileSync("./keys/private.pem", "utf8");
+export const publicKey = fs.readFileSync("./keys/public.pem", "utf8");
+```
+
+### 13.2 Build order for the auth service
+
+**Step 1 — a health route.** Confirms the service is up before wiring anything else.
+
+```javascript
+app.get("/health", (req, res) => res.json({ status: "ok" }));
+```
+
+**Step 2 — the discovery route.**
+
+```
+GET /.well-known/openid-configuration
+```
+
+- Fetch/derive the `issuer` — e.g. `` `http://localhost:${PORT}` ``.
+- Return JSON containing `authorization_endpoint`, `userinfo_endpoint`, and `jwks_uri`.
+
+```javascript
+app.get("/.well-known/openid-configuration", (req, res) => {
+  const issuer = `http://localhost:${PORT}`;
+  res.json({
+    issuer,
+    authorization_endpoint: `${issuer}/o/authenticate`,
+    userinfo_endpoint: `${issuer}/o/userinfo`,
+    jwks_uri: `${issuer}/.well-known/jwks.json`,
+  });
+});
+```
+
+**Step 3 — expose the public key.**
+
+```
+GET /.well-known/jwks.json
+```
+
+Flow when another service (or client) needs to verify a token:
+1. It receives a request carrying a token from a user.
+2. It calls this `jwks.json` endpoint.
+3. It gets back the public key.
+4. It uses that key to verify the token's signature.
+
+```javascript
+app.get("/.well-known/jwks.json", async (req, res) => {
+  const jwks = await keystore.toJSON(); // from node-jose keystore
+  res.json(jwks);
+});
+```
+
+**Step 4 — an authentication endpoint (the login page itself).**
+
+```
+GET /o/authenticate
+```
+
+This serves HTML (e.g. `authenticate.html`) — the actual page where the user types their email/password and logs in.
+
+**Step 5 — the sign-in route that the login form submits to.**
+
+```
+POST /o/authenticate/sign-in
+```
+
+Body: `{ email, password }`.
+
+1. **Validate the input** — check the fields are present/well-formed.
+2. **Check the user exists** by looking up their email.
+3. **Compare the hashed password** against what's stored (never compare plaintext).
+4. **Generate the ID token**, signed using the **private key**.
+5. **Redirect back with an authorization code** (mirroring the OAuth2 flow from section 9) — the token exchange happens at that point, not before.
+
+```javascript
+app.post("/o/authenticate/sign-in", async (req, res) => {
+  const { email, password } = req.body;
+
+  const user = await User.findOne({ email });
+  if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+  const isValid = await bcrypt.compare(password, user.passwordHash);
+  if (!isValid) return res.status(401).json({ error: "Invalid credentials" });
+
+  const idToken = await signJwt({ sub: user.id, email: user.email }, privateKey);
+
+  const code = generateShortLivedCode(user.id); // store server-side, short TTL
+  res.redirect(`${req.query.redirect_uri}?code=${code}`);
+});
+```
+
+**Step 6 — the userinfo endpoint.**
+
+```
+GET /o/userinfo
+```
+
+1. Client sends the request with header: `Authorization: Bearer <token>`.
+2. Server extracts the token from that header.
+3. Server verifies the token — checks it's valid, not expired, and that its signature matches the public key from JWKS.
+4. Server fetches and returns the user's data.
+
+```javascript
+app.get("/o/userinfo", async (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // "Bearer <token>"
+  if (!token) return res.status(401).json({ error: "Missing token" });
+
+  let claims;
+  try {
+    claims = await verifyJwt(token, publicKey); // checks signature + expiry
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+
+  const user = await User.findById(claims.sub);
+  res.json({ id: user.id, email: user.email });
+});
+```
+
+### 13.3 Assignment — the token exchange endpoint
+
+Create a `POST /o/tokeninfo` route that:
+
+1. Fetches the calling application's `client_secret`.
+2. Validates the authorization `code`.
+3. Looks up which user that code belongs to, and fetches their `access_token` (and `refresh_token`, if you're issuing one).
+4. Returns `{ token }`.
+
+```javascript
+app.post("/o/tokeninfo", async (req, res) => {
+  const { code, client_id, client_secret } = req.body;
+
+  const client = await Client.findById(client_id);
+  if (!client || client.secret !== client_secret) {
+    return res.status(401).json({ error: "Invalid client credentials" });
+  }
+
+  const userId = consumeShortLivedCode(code); // one-time use, then invalidated
+  if (!userId) return res.status(400).json({ error: "Invalid or expired code" });
+
+  const token = await signJwt({ sub: userId }, privateKey);
+  res.json({ token });
+});
+```
+
+This is, functionally, the same shape as building your own small OAuth2/OIDC provider — the same underlying mechanism that products like Clerk, Auth0, and Better-Auth wrap for you as a service.
+
+### 13.4 Good practices for an OIDC/JWT implementation
+
+- **Never store raw passwords** — only bcrypt/argon2 hashes; compare hashes, not plaintext.
+- **Keep the private key off every service except the auth service.** It should never be checked into git, logged, or shipped to a client.
+- **Short-lived authorization codes, single use.** Invalidate a code the moment it's exchanged, so a replayed/leaked code is useless.
+- **Set a real `exp` on every JWT** and actually check it on verify — don't issue tokens that live forever.
+- **Cache the JWKS response** in the verifying services instead of calling it per-request; refetch on a schedule or on a "key id not found" verification failure (which signals rotation).
+- **Version/identify keys with a `kid` (key id)** in the JWT header, so you can rotate keys without breaking tokens signed with the previous key while it's still valid.
+- **Validate `aud` (audience)** when verifying — a token meant for `booking-service` shouldn't be silently accepted by `upload-service`.
+- **Return generic error messages** on failed login ("invalid credentials") rather than "user not found" vs "wrong password" — avoids leaking which emails are registered.
+- **Rate-limit the sign-in and token endpoints** to slow down credential-stuffing/brute-force attempts.
