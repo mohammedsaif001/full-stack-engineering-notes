@@ -321,23 +321,69 @@
         const messageInput = document.getElementById('message-input');
         const chatForm = document.getElementById('chat-form');
         const messagesContainer = document.getElementById('messages-container');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const socketIdLabel = document.getElementById('socket-id-label');
 
         // 1. INPUT EVENT HANDLER (Logs typing directly to developer console)
         messageInput.addEventListener('input', (e) => {
             console.log(e.target.value);
         });
 
-        // 2. HELPER FUNCTION: Append Message UI
-        // Call this helper to display a new message in the chat container:
-        // appendMessage({ text: 'Hello', sender: 'User', type: 'sent' | 'received' })
-        function appendMessage({ text, sender = 'User', time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), type = 'sent' }) {
+        // 2. SOCKET.IO CONNECTION & LISTENERS
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Connected to server with ID:', socket.id);
+            if (statusDot) statusDot.classList.add('connected');
+            if (statusText) statusText.textContent = 'Connected';
+            if (socketIdLabel) socketIdLabel.textContent = `Client ID: ${socket.id}`;
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            if (statusDot) statusDot.classList.remove('connected');
+            if (statusText) statusText.textContent = 'Disconnected';
+            if (socketIdLabel) socketIdLabel.textContent = 'Reconnecting...';
+        });
+
+        // 3. RECEIVE MESSAGE FROM SERVER
+        socket.on('server:message', (data) => {
+            console.log('Received message:', data);
+            const isSelf = data.senderId === socket.id;
+
+            appendMessage({
+                text: data.text,
+                sender: isSelf ? 'You' : `User (${data.senderId ? data.senderId.substring(0, 5) : 'Anon'})`,
+                time: data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                type: isSelf ? 'sent' : 'received'
+            });
+        });
+
+        // 4. SEND MESSAGE FORM SUBMIT
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const messageText = messageInput.value.trim();
+            if (!messageText) return;
+
+            console.log('Sending message:', messageText);
+
+            socket.emit('user:message', {
+                text: messageText
+            });
+
+            messageInput.value = '';
+        });
+
+        // HELPER FUNCTION: Append Message UI
+        function appendMessage({ text, sender = 'User', time = '', type = 'sent' }) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${type}`;
 
             msgDiv.innerHTML = `
-                <div class="message-sender">${sender}</div>
+                <div class="message-sender">${escapeHtml(sender)}</div>
                 <div class="message-bubble">${escapeHtml(text)}</div>
-                <div class="message-time">${time}</div>
+                <div class="message-time">${escapeHtml(time)}</div>
             `;
 
             messagesContainer.appendChild(msgDiv);
@@ -347,43 +393,9 @@
         // HELPER FUNCTION: Escape HTML for security
         function escapeHtml(str) {
             const div = document.createElement('div');
-            div.appendChild(document.createTextNode(str));
+            div.appendChild(document.createTextNode(str || ''));
             return div.innerHTML;
         }
-
-        // ====================================================
-        // YOUR SOCKET.IO CODE GOES HERE:
-        // const socket = io();
-        // ====================================================
-                    const socket = io();
-
-                    socket.on('connect', () => {
-                        console.log('Connected to server', socket.id);
-                    });
-
-                    socket.on('server:message', (message) => {
-                        console.log('Received message:', message);
-                        appendMessage({
-                            text: message.text,
-                            sender: message.sender,
-                            time: message.time,
-                            type: message.type
-                        });
-                    });
-
-                    chatForm.addEventListener('submit', (e) => {
-                        e.preventDefault();
-                        const messageText = messageInput.value.trim();
-                        if (!messageText) return;
-                        console.log('Sending message:', messageText);
-                        socket.emit('user:message', {
-                            text: messageText,
-                            sender: 'User',
-                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            type: 'sent'
-                        });
-                        messageInput.value = '';
-                    });
     </script>
 </body>
 </html>

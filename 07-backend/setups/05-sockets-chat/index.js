@@ -16,16 +16,25 @@ const main = async () => {
      // 2. Attach the http server to it
     io.attach(server);
     
-    // 3. Start listening to this server
+    // 3. Start listening to socket connections
     io.on('connection', socket => {
-        console.log('A new Socket has connected', socket.id);
+        console.log('A new Socket has connected:', socket.id);
 
         socket.on("user:message", (data) => {
-          console.log("User sent message: ", data);
+            console.log(`[User ${socket.id}] sent message:`, data);
 
-          socket.emit("server:message", data);
+            const payload = {
+                text: typeof data === "string" ? data : data.text,
+                senderId: socket.id,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
 
-          socket.broadcast.emit("server:message", data);
+            // Broadcast to all connected sockets
+            io.emit("server:message", payload);
+        });
+
+        socket.on("disconnect", () => {
+            console.log('Socket disconnected:', socket.id);
         });
     });
 
