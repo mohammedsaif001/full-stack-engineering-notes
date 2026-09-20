@@ -38,7 +38,7 @@ We progress in levels. Each step exists for a single reason: **to solve the pain
 |---|---|---|
 | **00a** | [Cloud Fundamentals](00a-Cloud-Fundamentals.md) | AWS EC2, AMIs, SSH keys (`ssh-keygen`, public vs private key), Security Groups & CIDRs (`0.0.0.0/0` vs internal/Jio IP for port 22), Inbound/Outbound rules. |
 | **00b** | [Load Balancing & CDN](00b-Load-Balancing-And-CDN.md) | Target Groups, Elastic Load Balancers (ELB), S3 storage, and CloudFront CDN for super-fast asset/image retrieval. |
-| **00c** | [Launching Your First EC2 Instance](00c-Launching-Your-First-EC2-Instance.md) | Step-by-step hands-on walkthrough to launch an AWS EC2 instance, map IP addresses, and buy/link custom domains. |
+| **00c** | [Launching Your First EC2 Instance](00c-Launching-Your-First-EC2-Instance.md) | Step-by-step hands-on walkthrough to launch an AWS EC2 instance, map IP addresses, buy custom domains, and understand OS internal DNS resolution (`/etc/hosts`, `127.0.0.1`, mapping `saif.ai` locally). |
 | **01** | [Level 1 — Git Pull & Run](01-Level-1-Git-Pull-And-Run.md) | **Step 1 (Novice Level):** SSH into cloud server, clone GitHub repo, run Node server. Understand why closing terminal stops the app. |
 | **02** | [Level 2 — PM2 Process Manager](02-Level-2-PM2-Process-Manager.md) | **Step 2:** Keep your server alive with `pm2 start index.js`. Automatic restarts on crash and system reboots. |
 | **03** | [Level 3 — Dockerfile & Containers](03-Level-3-Dockerfile-And-Containers.md) | **Step 3:** Package app + services (Redis, Mongo, Kafka, Postgres). Dockerfile, Docker Hub images, `docker compose up -d`. *(Why PM2 is not needed in Docker)*. |
@@ -53,6 +53,7 @@ We progress in levels. Each step exists for a single reason: **to solve the pain
 
 - **SSH Keys:** Private key stays on your local machine; Public key lives in the server's `~/.ssh/authorized_keys`. Generate with `ssh-keygen` and inspect with `ls ~/.ssh | grep id_`.
 - **Security Group Strategy:** Open ports `80` (HTTP) and `443` (HTTPS) to `0.0.0.0/0` (everyone on the internet), but lock port `22` (SSH/bash) strictly to your own IP / CIDR range (e.g., your home or Jio connection).
+- **Internal OS DNS (`/etc/hosts`):** Your OS checks `/etc/hosts` first before contacting public DNS. `localhost` maps to `127.0.0.1`. You can map any custom domain like `saif.ai` to `127.0.0.1` locally to test servers without buying domains!
 - **The Docker Detached Shift:** Running containers with `docker compose up -d` handles background execution and auto-restart policies natively — **PM2 is no longer required**.
 - **SSL Termination:** Your reverse proxy (Caddy or Traefik) handles cryptographic key exchange on port 443 so your application containers don't waste CPU cycles on SSL and can focus purely on business routes.
 - **Single Machine, Multi-Project Scaling:** Using Traefik on port 443 lets you route incoming domains (`project-a.com`, `project-b.com`) to separate Docker container stacks on the exact same server without provisioning new virtual machines!
