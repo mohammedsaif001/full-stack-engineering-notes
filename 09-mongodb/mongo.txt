@@ -1,1 +1,0 @@
-Mongo Related Learning goes into this folder
