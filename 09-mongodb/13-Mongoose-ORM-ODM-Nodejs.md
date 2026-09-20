@@ -1,7 +1,7 @@
 # 🍃 13 — Mongoose ODM for Node.js & Express
 
 > Previous: [12-Transactions-ACID-Concurrency.md](12-Transactions-ACID-Concurrency.md)  
-> Next: [14-Replication-High-Availability.md](14-Replication-High-Availability.md)
+> Next: [13b-MongoDB-vs-Mongoose-CRUD-Comparison.md](13b-MongoDB-vs-Mongoose-CRUD-Comparison.md)
 
 ---
 
@@ -78,6 +78,48 @@ module.exports = User;
 
 ---
 
+## 🔒 2b. Schema-Level Field Hiding (`select: false`) & Explicit Selection (`+password`)
+
+In production authentication systems, you **NEVER** want password hashes accidentally returned in API responses or user profiles!
+
+### Step 1: Hide Field by Default at Schema Level (`select: false`)
+
+```javascript
+const userSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  password: {
+    type: String,
+    required: true,
+    select: false // 🔒 Hides password field by default from ALL find queries!
+  }
+});
+```
+
+Now, any standard query like `User.find()` or `User.findById()` will automatically exclude the `password` field from the returned JSON response:
+
+```javascript
+// Password is NOT included in the returned user object!
+const user = await User.findOne({ email: "saif@example.com" });
+console.log(user.password); // undefined!
+```
+
+---
+
+### Step 2: Explicitly Retrieve Hidden Field When Needed (`.select('+password')`)
+
+When executing authentication logic (e.g., verifying user login password during POST `/api/login`), you **MUST** explicitly request the password field using `.select('+password')`:
+
+```javascript
+// Explicitly override 'select: false' using '+password'
+const user = await User.findOne({ email: req.body.email }).select('+password');
+
+// Now user.password contains the hashed password string for bcrypt validation!
+const isMatch = await bcrypt.compare(req.body.password, user.password);
+```
+
+---
+
 ## 🪝 3. Middleware Hooks (`pre` & `post` Hooks)
 
 Mongoose middleware allows executing custom logic (like hashing passwords) before or after database actions:
@@ -140,4 +182,4 @@ userSchema.set('toJSON', { virtuals: true });
 
 ---
 
-Next: [14-Replication-High-Availability.md](14-Replication-High-Availability.md) — Replica Sets, Failover & High Availability.
+Next: [13b-MongoDB-vs-Mongoose-CRUD-Comparison.md](13b-MongoDB-vs-Mongoose-CRUD-Comparison.md) — Native MongoDB vs Mongoose CRUD Comparison.
