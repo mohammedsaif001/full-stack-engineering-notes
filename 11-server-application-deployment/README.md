@@ -46,6 +46,7 @@ We progress in levels. Each step exists for a single reason: **to solve the pain
 | **05** | [Level 5 — Traefik Multi-Project Single Machine](05-Level-5-Traefik-Multi-Project-Single-Machine.md) | **Step 5 (High Level):** Host `project-a.com` and `project-b.com` on one server using Traefik as the central HTTPS edge router. |
 | **06** | [CI/CD — GitHub Actions](06-CICD-GitHub-Actions.md) | Compare CI/CD providers (GitHub Actions, Jenkins, AWS CloudBuild, CircleCI, GCP Cloud Run). Create `.github/workflows/deploy.yml` with source, event, steps. |
 | **07** | [Observability — OTel & Signoz](07-Observability-OTel-Signoz.md) | Implement OpenTelemetry (OTel) & Signoz using the **Sidecar Pattern** inside containers to track server health without altering API code. |
+| **08** | [Frontend Deployment — React & Next.js](08-Deploying-Frontend-React-And-Nextjs.md) | Deploy React SPAs (Vite/Nginx/S3/CloudFront) vs Next.js SSR apps (Standalone Docker + Reverse Proxy). Manage `.env` secrets safely across cloud & CI/CD pipelines. |
 
 ---
 
@@ -54,8 +55,10 @@ We progress in levels. Each step exists for a single reason: **to solve the pain
 - **SSH Keys:** Private key stays on your local machine; Public key lives in the server's `~/.ssh/authorized_keys`. Generate with `ssh-keygen` and inspect with `ls ~/.ssh | grep id_`.
 - **Security Group Strategy:** Open ports `80` (HTTP) and `443` (HTTPS) to `0.0.0.0/0` (everyone on the internet), but lock port `22` (SSH/bash) strictly to your own IP / CIDR range (e.g., your home or Jio connection).
 - **Internal OS DNS (`/etc/hosts`):** Your OS checks `/etc/hosts` first before contacting public DNS. `localhost` maps to `127.0.0.1`. You can map any custom domain like `saif.ai` to `127.0.0.1` locally to test servers without buying domains!
+- **Environment Variables (`.env`):** Never commit `.env` to Git. Create `.env` directly on the server (`nano .env`), pass via Docker Compose `env_file`, or inject via GitHub Actions Secrets during deploy.
 - **The Docker Detached Shift:** Running containers with `docker compose up -d` handles background execution and auto-restart policies natively — **PM2 is no longer required**.
 - **SSL Termination:** Your reverse proxy (Caddy or Traefik) handles cryptographic key exchange on port 443 so your application containers don't waste CPU cycles on SSL and can focus purely on business routes.
+- **Frontend Strategy:** React SPAs (Vite) compile into static files (`dist`) and are served via Nginx/Caddy or S3+CloudFront. Next.js SSR apps run as Node server containers (`output: 'standalone'`).
 - **Single Machine, Multi-Project Scaling:** Using Traefik on port 443 lets you route incoming domains (`project-a.com`, `project-b.com`) to separate Docker container stacks on the exact same server without provisioning new virtual machines!
 
 ---
