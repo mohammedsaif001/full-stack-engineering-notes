@@ -1,91 +1,93 @@
-# Level 1 — Clone, Install, Run
-## Part 1 of 5 — The Simplest Possible Deployment
+# 🐣 Level 1 — Git Pull & Run (Novice Deployment)
+## Step 1 of 5 — The Simplest Possible Deployment
 
-> Previous: [00c-Launching-Your-First-EC2-Instance.md](00c-Launching-Your-First-EC2-Instance.md)
+> Previous: [00c-Launching-Your-First-EC2-Instance.md](00c-Launching-Your-First-EC2-Instance.md)  
 > Next: [02-Level-2-PM2-Process-Manager.md](02-Level-2-PM2-Process-Manager.md)
 
 ---
 
 ## 📌 Executive Summary
 
-- **Level 1 goal:** get your code from GitHub onto a cloud machine and running, so that anyone with the instance's public IP can hit it.
-- No process manager, no Docker, no reverse proxy yet — deliberately. This level exists to prove the absolute basics work: SSH in, pull code, install deps, run it, open the port.
-- **The catch you'll immediately hit:** the moment you close your SSH session, the app dies. That's the problem Level 2 solves.
+- **Level 1 Goal:** Prove the path end-to-end! Clone a GitHub repository onto your EC2 server, install dependencies, run `npm start`, and access it over the internet.
+- **Level 1 Architecture:** No process manager, no Docker, no reverse proxy — just raw Node.js running directly on the cloud server OS.
+- 🚨 **The Major Catch:** The moment you close your SSH terminal session or step away from your laptop shell, **your Node server immediately stops running!**
 
 ---
 
-## 🧠 Core Analogy
+## 🧠 Core Analogy: Holding the Light Switch
 
-You've handed someone the keys to an empty apartment (the EC2 instance). Level 1 is just: walk in, plug in a lamp (`npm start`), leave the lamp on while you stand there. The moment you leave the room and let go of the switch, the light goes out. That's fine for a first test — not fine for anything real.
-
----
-
-## 🛠️ 1. Prerequisites (from [00a](00a-Cloud-Fundamentals.md) & [00c](00c-Launching-Your-First-EC2-Instance.md))
-
-1. An EC2 instance launched from an AMI (e.g., Ubuntu 22.04), with a **key pair** created/selected at launch — see [00c](00c-Launching-Your-First-EC2-Instance.md) for the exact click-by-click (or CLI) steps.
-2. A **security group** allowing:
-   - Port 22 (SSH) from your IP only.
-   - Your app's port (e.g., 3000) from your IP, temporarily, just to prove external access works.
-3. Your project pushed to a GitHub repository.
+Level 1 is like walking into an empty cloud room, flipping on a lamp switch (`npm start`), and keeping your finger pressed on the switch while standing there. The second you let go and leave the room (close your SSH connection), the lights go completely dark.
 
 ---
 
-## 📥 2. SSH In and Install Node
+## 🛠️ Hands-on Step-by-Step Execution
+
+### 1️⃣ Step 1: SSH into your EC2 Instance
 
 ```bash
 ssh -i ~/.ssh/my-ec2-key.pem ubuntu@<EC2_PUBLIC_IP>
 ```
 
-Once inside the instance (this is now *its* terminal, not your laptop's):
+### 2️⃣ Step 2: Install Node.js & Git on the Server
+
+Inside your EC2 server shell:
 
 ```bash
-# Ubuntu/Debian example — install Node via NodeSource
+# Update package lists and install Node.js 22 LTS & Git
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs git
 
+# Verify installation
 node -v
 npm -v
+git --version
 ```
 
----
-
-## 📦 3. Clone the Repository and Run It
+### 3️⃣ Step 3: Clone Your GitHub Repository
 
 ```bash
 git clone https://github.com/<your-username>/<your-repo>.git
 cd <your-repo>
-
-npm install
-npm start          # or: node index.js / node dist/index.js
 ```
 
-If your app listens on, say, port 3000 (`app.listen(3000)`), and your security group allows inbound traffic on 3000 from anywhere, it is now reachable at:
+### 4️⃣ Step 4: Install Dependencies & Run the Application
+
+```bash
+npm install
+npm start
+```
+
+If your Node.js app runs on port `3000` (`app.listen(3000)`), you can now open your web browser and visit:
 
 ```
 http://<EC2_PUBLIC_IP>:3000
 ```
 
-Anyone on the internet with that IP and port can hit your API right now.
+🎉 It works! Your application is live on the internet!
 
 ---
 
-## ⚠️ 4. The Problem With Level 1
+## ⚠️ Why Level 1 Fails in Real Production
 
-Two things break this immediately:
+Try this test: **Close your terminal window or press `Ctrl + C`.**
 
-1. **Close the terminal (or lose your SSH connection) → the process dies.** `npm start` is running in the *foreground* of your SSH session; the shell and the Node process are tied together. No terminal, no process.
-2. **The app doesn't restart itself** if it crashes on an unhandled exception.
+Now try refreshing `http://<EC2_PUBLIC_IP>:3000` in your browser.  
+🚨 **The page fails to load!**
 
-You *could* work around #1 with `nohup npm start &` or a detached `screen`/`tmux` session, but that's a hack, not a real solution — there's no automatic restart on crash, no log management, no "start this on server reboot."
-
-That's exactly what a **process manager** is for — next file.
+### Why did it stop?
+1. **Foreground Shell Execution:** When you run `npm start`, the process runs attached to your active SSH session standard output (stdout/stdin).
+2. **Terminal Disconnect:** When you log out of SSH, the OS sends a `SIGHUP` (Signal Hangup) to kill all child processes running under that shell session.
+3. **No Crash Recovery:** If an unhandled exception or error occurs in your code, Node crashes and stays dead.
 
 ---
 
-## ✅ Takeaways
+## ✅ Summary Takeaways
 
-- Level 1 is: SSH in → install Node/git → `git clone` → `npm install` → `npm start` → open the port in the security group.
-- This proves the whole path works end-to-end (code → cloud machine → publicly reachable), but the process only survives as long as your SSH session does.
-- Solving "keep it running after I disconnect, and restart it if it crashes" is Level 2.
+- Level 1 proves your code can run on a remote cloud machine accessible via IP and Port.
+- Running `npm start` directly in SSH is strictly for temporary testing.
+- **Problem Statement:** *"If I come out of the shell, it will stop!"*
+- **Solution:** We need a process manager that runs Node.js silently in the background — **Enter Level 2 (PM2)!**
 
-Next: [02-Level-2-PM2-Process-Manager.md](02-Level-2-PM2-Process-Manager.md)
+---
+
+Next: [02-Level-2-PM2-Process-Manager.md](02-Level-2-PM2-Process-Manager.md) — Keeping Node.js apps alive using PM2.
