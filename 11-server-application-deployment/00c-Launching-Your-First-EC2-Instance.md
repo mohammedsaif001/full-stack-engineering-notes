@@ -33,6 +33,34 @@
 1. Under **Instance type**, pick **t2.micro** or **t3.micro** (both are in the AWS Free Tier for a new account, first 12 months).
    - This defines the CPU/RAM the "apartment" (instance) has — `t2.micro` = 1 vCPU, 1 GB RAM, enough for a small Node app.
 
+> 🧩 **Before picking a size, understand what "4 vCPU, 8 GB" actually means** — see the box below. It's not the same kind of number as "my laptop has 1 CPU."
+
+#### 🧠 CPU vs vCPU — and why your laptop isn't really "1 CPU"
+
+This trips almost everyone up the first time they see an instance sizing table, so it's worth being precise:
+
+- **CPU (the chip)** — a *physical processor package*, the actual piece of silicon plugged into a socket on a motherboard. Most laptops and EC2's underlying hardware have **one physical CPU chip**.
+- **Core** — a chip is not one single "brain." Modern CPU chips are internally split into multiple **cores**, each capable of independently executing instructions. Your laptop's "1 CPU" is very likely **4, 6, 8, or more cores** on that one chip — check with Task Manager (Windows) → Performance tab → CPU → "Cores."
+- **Thread (SMT / Hyper-Threading)** — many cores can additionally run **2 logical threads each**, roughly doubling the number of tasks the chip can juggle at once (not doubling raw compute — it's a scheduling trick to keep the core's execution units busier).
+- So "1 CPU" in casual speech (what you feel like you have) is really: **1 chip → several cores → each core possibly 2 threads → Task Manager shows you that final thread count as "logical processors."**
+
+That's exactly why your "1 CPU, 16 GB RAM" framing needs a correction: you almost certainly have **1 physical CPU chip with multiple cores** (commonly 4–16 depending on your machine), giving you several logical processors already, plus 16 GB RAM as a separate, unrelated spec.
+
+**Where vCPU comes in:** cloud providers virtualize hardware — many customers' VMs share one underlying physical host. A **vCPU (virtual CPU)** is the unit AWS/GCP/Azure actually sell you: it maps to **one thread of one physical core** on the underlying host hardware, not a whole physical chip.
+
+| Term | What it actually is |
+|---|---|
+| **CPU / socket** | One physical chip. Most machines (laptops, EC2 hosts) have 1–2 of these. |
+| **Core** | One independent execution unit *inside* a CPU chip. A chip commonly has 4–64+ cores. |
+| **Thread (logical processor)** | What one core exposes to the OS — 1 or 2 per core, depending on SMT/Hyper-Threading. |
+| **vCPU (cloud term)** | AWS's unit of sale — typically **one thread** on the physical host machine backing your instance, allocated to your VM (possibly time-shared with other customers' VMs on the same host, depending on instance family). |
+
+So when you see `t2.micro = 1 vCPU`, that's **one thread's worth of compute time** on some physical core on AWS's host hardware — not "one whole physical chip" and not even necessarily "one whole physical core" dedicated only to you (burstable instance families like `t2`/`t3` explicitly share and throttle CPU credits; larger, non-burstable families like `m5`/`c5` give more consistent, closer-to-dedicated per-vCPU performance).
+
+**Applying this to your own machine:** if your laptop shows "16 GB RAM" and you assumed "1 CPU" meant one indivisible unit, open Task Manager → Performance → CPU and look at "Cores" and "Logical processors." You'll almost certainly see something like 4–8 cores / 8–16 logical processors — i.e., your one physical chip is already roughly equivalent to an EC2 instance advertising "8 vCPU." The RAM (16 GB) is a completely separate, independent spec from core/thread count — a chip's core count doesn't determine how much memory is attached to the system; that's decided by how many RAM sticks/modules the motherboard has installed.
+
+**So "4 CPU, 8 GB" on an instance-sizing page really means:** 4 vCPUs (4 threads' worth of scheduled compute time on the host) + 8 GB of RAM allocated to your VM — comparable in raw thread count to a modest modern laptop, but with performance consistency depending on the instance family (burstable vs dedicated).
+
 ### Step 4 — Key Pair (Login)
 
 1. Under **Key pair (login)** → click **Create new key pair**.
@@ -199,6 +227,7 @@ Terminating (not just "stopping") releases the instance so it stops counting aga
 
 ## ✅ Takeaways
 
+- **CPU vs vCPU:** your laptop's "1 CPU" is one physical chip that already contains multiple cores (and possibly 2 threads/core via SMT) — check Task Manager's "Cores" and "Logical processors," don't assume "1." A cloud **vCPU** ≈ one thread's worth of scheduled time on the provider's host hardware, not a whole physical chip — so "4 vCPU, 8 GB" is comparable in raw thread count to a modest modern laptop, RAM is a fully independent spec from core/thread count either way.
 - Console path: **Launch instance → pick AMI (Ubuntu) → pick instance type (t2/t3.micro) → create & download key pair → configure security group (22 from My IP, 80/443 from anywhere) → Launch → grab Public IPv4 → SSH in.**
 - CLI path does the exact same five things (`create-key-pair`, `create-security-group` + `authorize-security-group-ingress`, `describe-images`, `run-instances`, `describe-instances`) — useful once you want this scripted or added to a CI/CD pipeline ([06](06-CICD-GitHub-Actions.md)).
 - The `.pem` file downloads **once** — save it to `~/.ssh/` immediately and `chmod 400` it.
