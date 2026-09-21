@@ -294,6 +294,8 @@ This is the same architecture idea behind the Zoom UDP/TCP fallback behavior des
 | **Best for** | Chat, live notifications, dashboards | Video/audio calls, screen share, low-latency data channels |
 | **Reliability** | Fully reliable (it's TCP) | Media is best-effort/lossy by design |
 
+> 📘 **Deep-Dive Guide:** For a complete architectural breakdown and comparison matrix of **Webhooks**, **Service Workers**, **WebRTC**, and **WebSockets**, see [`07-backend/12-Webhooks-ServiceWorkers-WebRTC-WebSockets.md`](file:///c:/Users/mohammed-saif/Desktop/cohort/07-backend/12-Webhooks-ServiceWorkers-WebRTC-WebSockets.md).
+
 ---
 
 ## 💡 Cheat Sheet: Quick Reference
