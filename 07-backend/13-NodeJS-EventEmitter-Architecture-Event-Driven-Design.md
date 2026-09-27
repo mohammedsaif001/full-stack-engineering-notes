@@ -187,6 +187,65 @@ eventEmitter.on('order:created', (order) => analyticsService.track(order));
 | **Return Values & Output** | **Bidirectional**: Controller can receive return values (e.g. `const receiptId = await emailService.send()`). | **Unidirectional (Fire & Forget)**: `emit()` does not collect return values from listeners. |
 | **Unit Testing & Mocking** | **Complex Mocks**: Testing `OrderController` requires mocking 5 injected services. | **Simple Assertion**: Testing `OrderController` only requires verifying that `'order:created'` was emitted with correct payloads. |
 
+#### 6. Error Recovery & Retry Strategies: Can Events be Retried?
+
+**Yes, absolutely!** If a task fails inside an event listener (e.g. email server network glitch, third-party API timeout), you can implement retry logic.
+
+However, because `EventEmitter` lives **in process memory (RAM)**, there is a key trade-off between simple in-memory retries and production persistent job queues:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        RETRY STRATEGIES IN EVENTS                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 1. In-Listener Exponential Backoff (In-Memory)                          │
+│    Listener catches error and retries N times with delay using timers.  │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 2. Re-Emitting Retry Events (Event-Driven Loop)                        │
+│    Emits 'order:created:retry' payload with attempt count counter.      │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 3. Persistent Job Queues - BullMQ / Redis / Kafka (Production-Grade)    │
+│    Persists event payloads to disk/Redis so retries survive crashes!    │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+##### Strategy A: Exponential Backoff inside the Listener
+You can wrap the listener's async logic in a retry helper function with exponential delays:
+
+```typescript
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delayMs = 1000
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (retries <= 0) throw error;
+    console.warn(`⚠️ Task failed. Retrying in ${delayMs}ms... (${retries} retries left)`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return retryWithBackoff(fn, retries - 1, delayMs * 2);
+  }
+}
+
+// Subscribing listener with automated retry:
+eventEmitter.on('order:created', async (order) => {
+  try {
+    await retryWithBackoff(() => emailService.sendReceipt(order), 3, 1000);
+    console.log('✅ Email sent successfully after retry!');
+  } catch (err) {
+    console.error('❌ All 3 retries exhausted for email delivery:', err);
+    // Log to alert system or error database
+  }
+});
+```
+
+##### Strategy B: The In-Memory Volatility Limitation vs. Production Message Queues (BullMQ / Redis)
+- **The In-Memory Danger**: Node's `EventEmitter` stores active callbacks in server RAM. If your Node.js server **crashes, runs out of memory, or restarts during a deployment** while retrying, that event is **permanently lost**.
+- **The Production Solution**: For mission-critical tasks (payment receipts, SMS alerts, video processing), production backends upgrade from Node's `EventEmitter` to **Persistent Job Queues** (like **BullMQ with Redis**, **RabbitMQ**, or **Kafka**):
+  - Events are saved to Redis or disk before execution.
+  - Built-in automatic retries with exponential backoff.
+  - If a server crashes mid-retry, another worker node picks up the task from Redis and finishes it.
+
 ---
 
 ## 🛠️ 4. Fundamental API & Core Methods
