@@ -1,0 +1,10 @@
+services:
+  postgres_drizzle_setup:
+    image:postgres:17
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: drizzle_setup
+      
