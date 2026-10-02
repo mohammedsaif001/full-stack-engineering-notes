@@ -1,6 +1,7 @@
 import { eq, ilike } from "drizzle-orm";
 import db from "../db/index.js";
 import { booksTable } from "../models/books.models.js";
+import { usersTable } from "../models/users.models.js";
 
 // Helper function to validate UUID format
 const isValidUUID = (uuidStr) => {
@@ -24,7 +25,20 @@ const getAllBooks = async (req, res) => {
       });
     }
 
-    const books = await db.select().from(booksTable);
+    const books = await db
+      .select({
+        id: booksTable.id,
+        title: booksTable.title,
+        description: booksTable.description,
+        genre: booksTable.genre,
+        author: {
+          id: usersTable.id,
+          name: usersTable.name,
+          email: usersTable.email,
+        },
+      })
+      .from(booksTable)
+      .innerJoin(usersTable, eq(booksTable.authorId, usersTable.id));
     return res.status(200).json({
       data: books,
       message: "Books Fetched Successfully",
