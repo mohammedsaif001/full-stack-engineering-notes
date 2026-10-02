@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, ilike } from "drizzle-orm";
 import db from "../db/index.js";
 import { booksTable } from "../models/books.models.js";
 
@@ -11,6 +11,19 @@ const isValidUUID = (uuidStr) => {
 
 const getAllBooks = async (req, res) => {
   try {
+    const { q } = req.query;
+
+    if (q) {
+      const books = await db
+        .select()
+        .from(booksTable)
+        .where(ilike(booksTable.description, `%${q}%`));
+      return res.status(200).json({
+        data: books,
+        message: "Books Fetched Successfully",
+      });
+    }
+
     const books = await db.select().from(booksTable);
     return res.status(200).json({
       data: books,
@@ -29,21 +42,28 @@ const createNewBook = async (req, res) => {
     // 1. Required fields validation
     if (!title || !authorId || !genre) {
       return res.status(400).json({
-        error: "Missing required fields. 'title', 'authorId', and 'genre' are required.",
+        error:
+          "Missing required fields. 'title', 'authorId', and 'genre' are required.",
       });
     }
 
     // 2. Data type & format validation
     if (typeof title !== "string" || title.trim().length === 0) {
-      return res.status(400).json({ error: "'title' must be a non-empty string." });
+      return res
+        .status(400)
+        .json({ error: "'title' must be a non-empty string." });
     }
 
     if (typeof genre !== "string" || genre.trim().length === 0) {
-      return res.status(400).json({ error: "'genre' must be a non-empty string." });
+      return res
+        .status(400)
+        .json({ error: "'genre' must be a non-empty string." });
     }
 
     if (!isValidUUID(authorId)) {
-      return res.status(400).json({ error: "Invalid 'authorId' format (must be a valid UUID)." });
+      return res
+        .status(400)
+        .json({ error: "Invalid 'authorId' format (must be a valid UUID)." });
     }
 
     // 3. Insert into database
@@ -81,7 +101,9 @@ const getBookById = async (req, res) => {
     const { id } = req.params;
 
     if (!isValidUUID(id)) {
-      return res.status(400).json({ error: "Invalid Book ID format (must be a valid UUID)." });
+      return res
+        .status(400)
+        .json({ error: "Invalid Book ID format (must be a valid UUID)." });
     }
 
     const [book] = await db
@@ -108,7 +130,9 @@ const deleteBook = async (req, res) => {
     const { id } = req.params;
 
     if (!isValidUUID(id)) {
-      return res.status(400).json({ error: "Invalid Book ID format (must be a valid UUID)." });
+      return res
+        .status(400)
+        .json({ error: "Invalid Book ID format (must be a valid UUID)." });
     }
 
     const [deletedBook] = await db
@@ -136,14 +160,18 @@ const updateBook = async (req, res) => {
     const { title, description, authorId, genre } = req.body || {};
 
     if (!isValidUUID(id)) {
-      return res.status(400).json({ error: "Invalid Book ID format (must be a valid UUID)." });
+      return res
+        .status(400)
+        .json({ error: "Invalid Book ID format (must be a valid UUID)." });
     }
 
     const updateData = {};
 
     if (title !== undefined) {
       if (typeof title !== "string" || title.trim().length === 0) {
-        return res.status(400).json({ error: "'title' must be a non-empty string." });
+        return res
+          .status(400)
+          .json({ error: "'title' must be a non-empty string." });
       }
       updateData.title = title.trim();
     }
@@ -154,21 +182,26 @@ const updateBook = async (req, res) => {
 
     if (genre !== undefined) {
       if (typeof genre !== "string" || genre.trim().length === 0) {
-        return res.status(400).json({ error: "'genre' must be a non-empty string." });
+        return res
+          .status(400)
+          .json({ error: "'genre' must be a non-empty string." });
       }
       updateData.genre = genre.trim();
     }
 
     if (authorId !== undefined) {
       if (!isValidUUID(authorId)) {
-        return res.status(400).json({ error: "Invalid 'authorId' format (must be a valid UUID)." });
+        return res
+          .status(400)
+          .json({ error: "Invalid 'authorId' format (must be a valid UUID)." });
       }
       updateData.authorId = authorId;
     }
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({
-        error: "At least one field ('title', 'description', 'genre', or 'authorId') must be provided to update.",
+        error:
+          "At least one field ('title', 'description', 'genre', or 'authorId') must be provided to update.",
       });
     }
 
@@ -209,4 +242,3 @@ export default {
   updateBookPUT: updateBook,
   updateBookPATCH: updateBook,
 };
-
