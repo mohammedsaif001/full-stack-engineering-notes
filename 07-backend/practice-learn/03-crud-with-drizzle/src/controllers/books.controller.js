@@ -1,179 +1,212 @@
-import { BOOKS } from "../db/books.js";
+import { eq } from "drizzle-orm";
+import db from "../db/index.js";
+import { booksTable } from "../models/books.models.js";
 
-const getAllBooks = (req, res) => {
-  const books = BOOKS;
-  console.log(books);
-  res.status(200).json({
-    data: books,
-    message: "Books Fetched Successfully",
-  });
+// Helper function to validate UUID format
+const isValidUUID = (uuidStr) => {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return typeof uuidStr === "string" && uuidRegex.test(uuidStr);
 };
 
-const createNewBook = (req, res) => {
-  const body = req.body;
-
-  if (!body) {
-    res.status(400).json({
-      message: "Invalid Request",
-      data: [],
+const getAllBooks = async (req, res) => {
+  try {
+    const books = await db.select().from(booksTable);
+    return res.status(200).json({
+      data: books,
+      message: "Books Fetched Successfully",
     });
-    return;
+  } catch (error) {
+    console.error("Error fetching books:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-
-  const name = body.name || body.title;
-  const { author } = body;
-
-  if (!name || !author) {
-    res.status(400).json({
-      message: "Invalid Request: name/title and author are required",
-      data: [],
-    });
-    return;
-  }
-
-  const newBook = {
-    id: BOOKS.length > 0 ? Math.max(...BOOKS.map((b) => b.id)) + 1 : 1,
-    name,
-    author,
-  };
-
-  BOOKS.push(newBook);
-  res.status(201).json({
-    message: "Book Created Successfully",
-    data: newBook,
-  });
 };
 
-const getBookById = (req, res) => {
-  const id = parseInt(req.params.id);
+const createNewBook = async (req, res) => {
+  try {
+    const { title, description, authorId, genre } = req.body || {};
 
-  if (!id || isNaN(id)) {
-    res.status(400).json({
-      message: "Invalid Request",
-      data: [],
+    // 1. Required fields validation
+    if (!title || !authorId || !genre) {
+      return res.status(400).json({
+        error: "Missing required fields. 'title', 'authorId', and 'genre' are required.",
+      });
+    }
+
+    // 2. Data type & format validation
+    if (typeof title !== "string" || title.trim().length === 0) {
+      return res.status(400).json({ error: "'title' must be a non-empty string." });
+    }
+
+    if (typeof genre !== "string" || genre.trim().length === 0) {
+      return res.status(400).json({ error: "'genre' must be a non-empty string." });
+    }
+
+    if (!isValidUUID(authorId)) {
+      return res.status(400).json({ error: "Invalid 'authorId' format (must be a valid UUID)." });
+    }
+
+    // 3. Insert into database
+    const [newBook] = await db
+      .insert(booksTable)
+      .values({
+        title: title.trim(),
+        description: description ? String(description).trim() : null,
+        authorId,
+        genre: genre.trim(),
+      })
+      .returning();
+
+    return res.status(201).json({
+      data: newBook,
+      message: "Book Created Successfully",
     });
-    return;
-  }
+  } catch (error) {
+    const pgError = error.cause || error;
 
-  const book = BOOKS.find((item) => item.id === id);
-  if (!book) {
-    res.status(404).json({
-      message: "Book Not Found",
-      data: [],
-    });
-    return;
-  }
+    // Foreign Key constraint failure (authorId does not exist in users table)
+    if (pgError.code === "23503") {
+      return res.status(400).json({
+        error: "Invalid 'authorId'. User does not exist.",
+      });
+    }
 
-  res.status(200).json({
-    data: book,
-    message: "Book Fetched Successfully",
-  });
+    console.error("Error creating book:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
 };
 
-const deleteBook = (req, res) => {
-  const id = parseInt(req.params.id);
+const getBookById = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  if (!id || isNaN(id)) {
-    res.status(400).json({
-      message: "Invalid Request",
-      data: [],
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ error: "Invalid Book ID format (must be a valid UUID)." });
+    }
+
+    const [book] = await db
+      .select()
+      .from(booksTable)
+      .where(eq(booksTable.id, id));
+
+    if (!book) {
+      return res.status(404).json({ message: "Book Not Found" });
+    }
+
+    return res.status(200).json({
+      data: book,
+      message: "Book Fetched Successfully",
     });
-    return;
+  } catch (error) {
+    console.error("Error fetching book:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-
-  const index = BOOKS.findIndex((item) => item.id === id);
-  if (index === -1) {
-    res.status(404).json({
-      message: "Book Not Found",
-      data: [],
-    });
-    return;
-  }
-
-  const [deletedBook] = BOOKS.splice(index, 1);
-
-  res.status(200).json({
-    data: deletedBook,
-    message: "Book Deleted Successfully",
-  });
 };
 
-const updateBookPUT = (req, res) => {
-  const id = parseInt(req.params.id);
+const deleteBook = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  if (!id || isNaN(id)) {
-    res.status(400).json({
-      message: "Invalid Request",
-      data: [],
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ error: "Invalid Book ID format (must be a valid UUID)." });
+    }
+
+    const [deletedBook] = await db
+      .delete(booksTable)
+      .where(eq(booksTable.id, id))
+      .returning();
+
+    if (!deletedBook) {
+      return res.status(404).json({ message: "Book Not Found" });
+    }
+
+    return res.status(200).json({
+      data: deletedBook,
+      message: "Book Deleted Successfully",
     });
-    return;
+  } catch (error) {
+    console.error("Error deleting book:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-
-  const book = BOOKS.find((item) => item.id === id);
-  if (!book) {
-    res.status(404).json({
-      message: "Book Not Found",
-      data: [],
-    });
-    return;
-  }
-
-  const name = req.body.name || req.body.title;
-  const { author } = req.body;
-
-  if (name) {
-    book.name = name;
-  }
-  if (author) {
-    book.author = author;
-  }
-
-  res.status(200).json({
-    data: book,
-    message: "Book Updated Successfully",
-  });
 };
 
-const updateBookPATCH = (req, res) => {
-  const id = parseInt(req.params.id);
+const updateBook = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, authorId, genre } = req.body || {};
 
-  if (!id || isNaN(id)) {
-    res.status(400).json({
-      message: "Invalid Request",
-      data: [],
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ error: "Invalid Book ID format (must be a valid UUID)." });
+    }
+
+    const updateData = {};
+
+    if (title !== undefined) {
+      if (typeof title !== "string" || title.trim().length === 0) {
+        return res.status(400).json({ error: "'title' must be a non-empty string." });
+      }
+      updateData.title = title.trim();
+    }
+
+    if (description !== undefined) {
+      updateData.description = description ? String(description).trim() : null;
+    }
+
+    if (genre !== undefined) {
+      if (typeof genre !== "string" || genre.trim().length === 0) {
+        return res.status(400).json({ error: "'genre' must be a non-empty string." });
+      }
+      updateData.genre = genre.trim();
+    }
+
+    if (authorId !== undefined) {
+      if (!isValidUUID(authorId)) {
+        return res.status(400).json({ error: "Invalid 'authorId' format (must be a valid UUID)." });
+      }
+      updateData.authorId = authorId;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        error: "At least one field ('title', 'description', 'genre', or 'authorId') must be provided to update.",
+      });
+    }
+
+    const [updatedBook] = await db
+      .update(booksTable)
+      .set(updateData)
+      .where(eq(booksTable.id, id))
+      .returning();
+
+    if (!updatedBook) {
+      return res.status(404).json({ message: "Book Not Found" });
+    }
+
+    return res.status(200).json({
+      data: updatedBook,
+      message: "Book Updated Successfully",
     });
-    return;
-  }
+  } catch (error) {
+    const pgError = error.cause || error;
 
-  const book = BOOKS.find((item) => item.id === id);
-  if (!book) {
-    res.status(404).json({
-      message: "Book Not Found",
-      data: [],
-    });
-    return;
-  }
+    if (pgError.code === "23503") {
+      return res.status(400).json({
+        error: "Invalid 'authorId'. User does not exist.",
+      });
+    }
 
-  const name = req.body.name || req.body.title;
-  const { author } = req.body;
-
-  if (name) {
-    book.name = name;
+    console.error("Error updating book:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-  if (author) {
-    book.author = author;
-  }
-
-  res.status(200).json({
-    data: book,
-    message: "Book Updated Successfully",
-  });
 };
+
 export default {
   getAllBooks,
   createNewBook,
   getBookById,
   deleteBook,
-  updateBookPUT,
-  updateBookPATCH,
+  updateBook,
+  updateBookPUT: updateBook,
+  updateBookPATCH: updateBook,
 };
+
