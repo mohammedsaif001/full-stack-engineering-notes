@@ -1,0 +1,1 @@
+CREATE INDEX "title_idx" ON "books" ("title");
