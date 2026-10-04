@@ -58,57 +58,57 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const [user] = await db
+    // 1st DB Call: Fetch user AND any existing session in ONE JOIN query
+    const [data] = await db
       .select({
         id: usersTable.id,
         password: usersTable.password,
         salt: usersTable.salt,
+        sessionId: sessionTable.id,
+        sessionExpiresAt: sessionTable.expiresAt,
       })
       .from(usersTable)
+      .leftJoin(sessionTable, eq(sessionTable.userId, usersTable.id))
       .where(eq(usersTable.email, email));
-    if (!user) {
+
+    if (!data) {
       return res.status(404).json({ message: "User not found" });
     }
+
     const hashedPassword = crypto
-      .createHmac("sha256", user.salt)
+      .createHmac("sha256", data.salt)
       .update(password)
       .digest("hex");
-    if (hashedPassword !== user.password) {
+
+    if (hashedPassword !== data.password) {
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    // Check if an existing session exists for this user
-    const [existingSession] = await db
-      .select()
-      .from(sessionTable)
-      .where(eq(sessionTable.userId, user.id));
-
-    if (existingSession) {
-      if (new Date(existingSession.expiresAt) > new Date()) {
-        return res.status(400).json({ message: "User is already logged in" });
-      }
-      // If the session has expired, remove it to allow re-login
-      await db.delete(sessionTable).where(eq(sessionTable.userId, user.id));
+    // Check if user has an active (non-expired) session
+    if (data.sessionId && new Date(data.sessionExpiresAt) > new Date()) {
+      return res.status(400).json({ message: "User is already logged in" });
     }
 
+    // 2nd DB Call: Create or update session atomically
     const [session] = await db
       .insert(sessionTable)
       .values({
-        userId: user.id,
+        userId: data.id,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      })
+      .onConflictDoUpdate({
+        target: sessionTable.userId,
+        set: { expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
       })
       .returning({ id: sessionTable.id });
 
     return res.status(200).json({
-      userId: user.id,
+      userId: data.id,
       message: "User Logged In Successfully",
       sessionId: session.id,
     });
   } catch (error) {
     console.error("Login Error:", error);
-    if (error.code === "23505") {
-      return res.status(400).json({ message: "User is already logged in" });
-    }
     return res.status(500).json({ error: error.message });
   }
 });
