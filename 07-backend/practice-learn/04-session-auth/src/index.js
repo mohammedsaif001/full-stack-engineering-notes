@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import crypto from 'crypto';
 import db from './db/index.js';
-import { usersTable } from './db/schema.js';
+import { sessionTable, usersTable } from "./db/schema.js";
 import { eq } from "drizzle-orm";
 
 const app = express();
@@ -24,6 +24,14 @@ app.post("/signup", async (req, res) => {
       .createHmac("sha256", salt)
       .update(password)
       .digest("hex");
+
+    const [dbUser] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
+    if (dbUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
 
     const [user] = await db
       .insert(usersTable)
@@ -68,11 +76,39 @@ app.post("/login", async (req, res) => {
     if (hashedPassword !== user.password) {
       return res.status(401).json({ message: "Invalid password" });
     }
-    return res
-      .status(200)
-      .json({ userId: user.id, message: "User Logged In Successfully" });
+
+    // Check if an existing session exists for this user
+    const [existingSession] = await db
+      .select()
+      .from(sessionTable)
+      .where(eq(sessionTable.userId, user.id));
+
+    if (existingSession) {
+      if (new Date(existingSession.expiresAt) > new Date()) {
+        return res.status(400).json({ message: "User is already logged in" });
+      }
+      // If the session has expired, remove it to allow re-login
+      await db.delete(sessionTable).where(eq(sessionTable.userId, user.id));
+    }
+
+    const [session] = await db
+      .insert(sessionTable)
+      .values({
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      })
+      .returning({ id: sessionTable.id });
+
+    return res.status(200).json({
+      userId: user.id,
+      message: "User Logged In Successfully",
+      sessionId: session.id,
+    });
   } catch (error) {
     console.error("Login Error:", error);
+    if (error.code === "23505") {
+      return res.status(400).json({ message: "User is already logged in" });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
