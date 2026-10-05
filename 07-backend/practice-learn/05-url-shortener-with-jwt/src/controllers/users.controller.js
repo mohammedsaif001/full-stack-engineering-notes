@@ -1,20 +1,9 @@
-import db from "../db/index.js";
-import { usersTable } from "../db/schema.js";
+import UsersServices from "../services/users.services.js";
 
 class UsersControllers {
   static async getAllUsers(req, res) {
     try {
-      const users = await db
-        .select({
-          id: usersTable.id,
-          name: usersTable.name,
-          email: usersTable.email,
-          role: usersTable.role,
-          createdAt: usersTable.createdAt,
-          updatedAt: usersTable.updatedAt,
-        })
-        .from(usersTable);
-
+      const users = await UsersServices.getAllUsers();
       return res.status(200).json(users);
     } catch (error) {
       console.error("Get Users Error:", error);
@@ -30,4 +19,3 @@ class UsersControllers {
 }
 
 export default UsersControllers;
-
