@@ -4,9 +4,15 @@ import crypto from 'crypto';
 import db from './db/index.js';
 import { sessionTable, usersTable } from "./db/schema.js";
 import { eq } from "drizzle-orm";
+import {
+  authenticationMiddleware,
+  shouldBeAdmin,
+  shouldBeAuthenticated,
+} from "./middleware/auth.middleware.js";
 
 const app = express();
 app.use(express.json());
+app.use(authenticationMiddleware);
 
 app.get("/health", (req, res) => {
   return res.send("OK");
@@ -111,6 +117,12 @@ app.post("/login", async (req, res) => {
     console.error("Login Error:", error);
     return res.status(500).json({ error: error.message });
   }
+});
+
+app.get("/users", shouldBeAuthenticated, shouldBeAdmin, async (req, res) => {
+  const data = await db.select().from(usersTable);
+
+  return res.status(200).json(data);
 });
 
 
