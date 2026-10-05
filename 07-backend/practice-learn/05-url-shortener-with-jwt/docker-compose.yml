@@ -1,0 +1,9 @@
+services:
+  url-shortener-with-jwt:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: url-shortener-with-jwt
