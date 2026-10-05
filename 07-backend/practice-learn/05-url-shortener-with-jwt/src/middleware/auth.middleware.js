@@ -1,19 +1,16 @@
-import AuthServices from "../services/auth.services.js";
+import { verifyAccessToken } from "../utils/jwt.utils.js";
 
 const authenticationMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader) return next();
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return next();
 
-    const sessionId = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7).trim()
-      : authHeader.trim();
+    const token = authHeader.split(" ")[1];
+    if (!token) return next();
 
-    if (!sessionId) return next();
-
-    const user = await AuthServices.validateSession(sessionId);
-    if (user) {
-      req.user = user;
+    const decoded = verifyAccessToken(token);
+    if (decoded) {
+      req.user = decoded;
     }
 
     return next();

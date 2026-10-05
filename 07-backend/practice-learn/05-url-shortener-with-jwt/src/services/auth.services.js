@@ -1,7 +1,8 @@
 import crypto from "crypto";
 import db from "../db/index.js";
-import { sessionTable, usersTable } from "../db/schema.js";
+import { usersTable } from "../db/schema.js";
 import { eq } from "drizzle-orm";
+import { generateAuthTokens, verifyRefreshToken } from "../utils/jwt.utils.js";
 
 class AuthServices {
   static async createUser({ name, email, password }) {
@@ -50,13 +51,13 @@ class AuthServices {
     const [data] = await db
       .select({
         id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        role: usersTable.role,
         password: usersTable.password,
         salt: usersTable.salt,
-        sessionId: sessionTable.id,
-        sessionExpiresAt: sessionTable.expiresAt,
       })
       .from(usersTable)
-      .leftJoin(sessionTable, eq(sessionTable.userId, usersTable.id))
       .where(eq(usersTable.email, normalizedEmail));
 
     if (!data) {
@@ -76,71 +77,56 @@ class AuthServices {
       throw error;
     }
 
-    // Return active session if valid
-    if (data.sessionId && new Date(data.sessionExpiresAt) > new Date()) {
-      return {
-        userId: data.id,
-        sessionId: data.sessionId,
-        isExisting: true,
-      };
-    }
-
-    // Upsert session (24h expiry)
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const [session] = await db
-      .insert(sessionTable)
-      .values({
-        userId: data.id,
-        expiresAt,
-      })
-      .onConflictDoUpdate({
-        target: sessionTable.userId,
-        set: { expiresAt },
-      })
-      .returning({ id: sessionTable.id });
+    const { accessToken, refreshToken } = generateAuthTokens(data);
 
     return {
       userId: data.id,
-      sessionId: session.id,
-      isExisting: false,
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  static async refreshTokens({ refreshToken }) {
+    if (!refreshToken) {
+      const error = new Error("Refresh token is required.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    let decoded;
+    try {
+      decoded = verifyRefreshToken(refreshToken);
+    } catch (err) {
+      const error = new Error("Invalid or expired refresh token.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    const [user] = await db
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        role: usersTable.role,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, decoded.id));
+
+    if (!user) {
+      const error = new Error("User associated with token no longer exists.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const tokens = generateAuthTokens(user);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   }
 
   static async logoutUser(userId) {
-    await db
-      .delete(sessionTable)
-      .where(eq(sessionTable.userId, userId));
-  }
-
-  static async validateSession(sessionId) {
-    if (!sessionId) return null;
-
-    const [sessionData] = await db
-      .select({
-        id: usersTable.id,
-        name: usersTable.name,
-        email: usersTable.email,
-        role: usersTable.role,
-        expiresAt: sessionTable.expiresAt,
-        sessionId: sessionTable.id,
-      })
-      .from(sessionTable)
-      .innerJoin(usersTable, eq(usersTable.id, sessionTable.userId))
-      .where(eq(sessionTable.id, sessionId));
-
-    if (!sessionData) return null;
-
-    if (new Date(sessionData.expiresAt) <= new Date()) {
-      return null;
-    }
-
-    return {
-      id: sessionData.id,
-      name: sessionData.name,
-      email: sessionData.email,
-      role: sessionData.role,
-      sessionId: sessionData.sessionId,
-    };
+    return { message: "Logged out successfully." };
   }
 }
 

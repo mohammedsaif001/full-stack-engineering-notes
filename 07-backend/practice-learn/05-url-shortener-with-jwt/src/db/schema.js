@@ -13,13 +13,3 @@ export const usersTable = pgTable("users", {
     .notNull()
     .$onUpdate(() => new Date()),
 });
-
-export const sessionTable = pgTable("sessions", {
-  id: uuid().defaultRandom().notNull().primaryKey(),
-  userId: uuid()
-    .notNull()
-    .references(() => usersTable.id)
-    .unique(),
-  expiresAt: timestamp().notNull(),
-  createdAt: timestamp().defaultNow().notNull(),
-});
