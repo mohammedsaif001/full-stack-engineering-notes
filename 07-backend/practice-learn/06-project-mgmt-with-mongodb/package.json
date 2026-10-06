@@ -1,11 +1,11 @@
 {
-  "name": "06-auth-with-mongodb",
+  "name": "06-project-mgmt-with-mongodb",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon src/index.js",
+    "dev": "node --watch src/index.js",
     "start": "node src/index.js"
   },
     "dependencies": {

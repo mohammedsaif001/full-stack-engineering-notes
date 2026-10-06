@@ -22,7 +22,8 @@ app.use(
 
 
 app.get('/', (req, res) => {
-    res.send("Welcome to Authorization Project")
+    res.send("Welcome to Project Management API")
 })
 
-// 
+export default app
+
