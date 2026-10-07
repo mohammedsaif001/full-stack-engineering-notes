@@ -3,33 +3,34 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
-const userSchema = new Schema({
+const userSchema = new Schema(
+  {
     avatar: {
-        type: {
-            url: String,
-            localPath: String
-        },
-        default: {
+      type: {
+        url: String,
+        localPath: String,
+      },
+      default: {
         url: `https://placehold.co/200x200`,
         localPath: "",
       },
     },
     username: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true,
-        index: true,
-        lowerCase: true
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      index: true,
+      lowerCase: true,
     },
     email: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true,
-        lowerCase: true
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      lowerCase: true,
     },
-      fullName: {
+    fullName: {
       type: String,
       trim: true,
     },
@@ -56,7 +57,9 @@ const userSchema = new Schema({
     emailVerificationExpiry: {
       type: Date,
     },
-})
+  },
+  { timestamps: true },
+);
 
 userSchema.pre("save", async function (next) {
     if (!this.isModified("password")) return next();
