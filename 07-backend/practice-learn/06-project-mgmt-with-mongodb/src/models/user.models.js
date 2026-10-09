@@ -21,14 +21,14 @@ const userSchema = new Schema(
       unique: true,
       trim: true,
       index: true,
-      lowerCase: true,
+      lowercase: true,
     },
     email: {
       type: String,
       required: true,
       unique: true,
       trim: true,
-      lowerCase: true,
+      lowercase: true,
     },
     fullName: {
       type: String,
@@ -75,8 +75,8 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 userSchema.methods.generateAccessToken = function () {
     return jwt.sign({
         _id: this._id,
-        email: this._email,
-        username: this._username
+        email: this.email,
+        username: this.username
     }, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: process.env.ACCESS_TOKEN_EXPIRY
     })

@@ -9,7 +9,7 @@ export const AvailableUserRole = Object.values(UserRolesEnum);
 export const TaskStatusEnum = {
   TODO: "todo",
   IN_PROGRESS: "in_progress",
-  COMPLETED: "completed",
+  DONE: "done",
 };
 
 export const AvailableTaskStatus = Object.values(TaskStatusEnum);

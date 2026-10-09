@@ -1,12 +1,14 @@
-import { validationResult } from "express-validator"
-import { ApiError } from "../utils/api-error";
+import { validationResult } from "express-validator";
+import { ApiError } from "../utils/api-error.js";
 
 export const validate = (req, res, next) => {
     const errors = validationResult(req);
-    if (errors.isEmpty()) next();
+    if (errors.isEmpty()) {
+        return next();
+    }
 
     const extractedErrors = errors.array().map((err) => {
-        return { [err.path]: err.msg }
+        return { [err.path || err.param]: err.msg }
     });
 
     throw new ApiError(422, "Received invalid arguments", extractedErrors)
