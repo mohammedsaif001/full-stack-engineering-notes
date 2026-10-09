@@ -65,8 +65,8 @@ const emailVerificationMailGenContent = (username, verificationUrl) => {
   };
 };
 
-const passwordResetMailGenContent = (username, passwordResetUrl) => {
-    return {
+const forgotPasswordMailGenContent = (username, passwordResetUrl) => {
+  return {
     body: {
       name: username,
       intro: "We got a request to reset the password of your account",
@@ -87,6 +87,6 @@ const passwordResetMailGenContent = (username, passwordResetUrl) => {
 
 export {
   emailVerificationMailGenContent,
-  passwordResetMailGenContent,
+  forgotPasswordMailGenContent,
   sendEmail,
 };
