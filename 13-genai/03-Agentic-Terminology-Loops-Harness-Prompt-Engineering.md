@@ -217,13 +217,151 @@ Let's see how each tier contributes to building a modern AI product like **Curso
 
 ---
 
+---
+
+## 💻 7. From Theory to Code: How We Implemented the Full Agent Harness
+
+In our hands-on labs, we took these concepts from theory and built them step-by-step into working production code:
+
+```
+                          OUR 5-STEP CODE EVOLUTION
+
+    01-zero-shot-prompting.js
+    (Single direct prompt -> raw response)
+              │
+              ▼
+    02-few-shot-prompting.js
+    (Direct prompt + 2 sample inputs/outputs)
+              │
+              ▼
+    03-chain-of-thought-prompting.js
+    (INITIAL -> THINK -> ANALYZE -> OUTPUT loop via while (true))
+              │
+              ▼
+    04-cot-with-tool-access.js
+    (Added Tools: getWeatherData + executeCommandCli building real apps)
+              │
+              ▼
+    05-cot-with-tool-guardrail-schema.js
+    (THE FULL PRODUCTION HARNESS: Zod Schema + Dual Guardrails + PII Vault + Circuit Breakers)
+```
+
+---
+
+### Step-by-Step Code Architecture (From Our Labs)
+
+#### 1. Zero-Shot & Few-Shot Prompting (`01` & `02`)
+* In `01`, we tested single-turn completions (`client.chat.completions.create`).
+* In `02`, we anchored the model's output format by feeding it 2 concrete examples:
+  ```text
+  - what is 5+4? Expected output: Hey Saif, 5+4 is 9 (Nine)!
+  - what is 6+9? Expected output: Hey Saif, 6+9 is 15 (Fifteen)!
+  ```
+  *Result*: The model immediately mimicked the exact tone and format!
+
+---
+
+#### 2. The Chain-of-Thought Loop (`03-chain-of-thought-prompting.js`)
+Instead of answering instantly, we created a state-machine loop:
+$$\text{INITIAL} \longrightarrow \text{THINK} \longrightarrow \text{ANALYZE} \longrightarrow \text{OUTPUT}$$
+
+```javascript
+while (true) {
+  const res = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: MESSAGES,
+    response_format: { type: "json_object" },
+  });
+
+  const parsed = JSON.parse(res.choices[0].message.content);
+  MESSAGES.push({ role: "assistant", content: JSON.stringify(parsed) });
+
+  console.log({ Step: parsed.Step, Message: parsed.Message });
+  if (parsed.Step === "OUTPUT") break; // Loop terminates when task completes
+}
+```
+
+---
+
+#### 3. Giving the AI "Hands" with Tools (`04-cot-with-tool-access.js`)
+We provided real functions:
+* `getWeatherData(city)`: Fetches live weather from `wttr.in`.
+* `executeCommandCli(cmd)`: Runs live terminal commands on the user's machine.
+
+*What the AI achieved*:
+When we prompted:  
+👉 *"Build a funny functional working TODO application and run on browser and store all files in todo folder"*  
+The agent autonomously:
+1. Ran `mkdir todo`
+2. Wrote `todo/index.html`
+3. Wrote `todo/style.css`
+4. Wrote `todo/script.js`
+5. Ran `start todo/index.html` to open the funny TODO app directly in the user's browser!
+
+---
+
+#### 4. The Complete Production Harness (`05-cot-with-tool-guardrail-schema.js`)
+In our final file, we wrapped everything in enterprise-grade security and reliability:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                 OUR PRODUCTION AGENT HARNESS ARCHITECTURE                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+       [ User Input: "My email is saif@... and card is 4532-... weather Goa" ]
+                                      │
+                                      ▼
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ 1. INPUT GUARDRAIL                                              │
+    │    • Detects Prompt Injection (/ignore previous instructions/i) │
+    │    • PII Vault Masking: Replaces "saif@" -> "{{EMAIL_1}}"       │
+    │    • Delimiter Sandboxing: Wraps in <user_request> tags         │
+    └─────────────────────────────────┬───────────────────────────────┘
+                                      │
+                                      ▼
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ 2. ZOD CONSTRAINED DECODING                                     │
+    │    • response_format: zodResponseFormat(AgentStepSchema)        │
+    │    • Model is mathematically forbidden from generating invalid  │
+    │      JSON keys or broken syntax!                                │
+    └─────────────────────────────────┬───────────────────────────────┘
+                                      │
+                                      ▼
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ 3. TOOL EXECUTION GUARDRAIL                                     │
+    │    • Checks CLI commands before running                         │
+    │    • Blocks destructive commands (rmdir /s, format, shutdown)   │
+    └─────────────────────────────────┬───────────────────────────────┘
+                                      │
+                                      ▼
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ 4. CIRCUIT BREAKER (MAX_STEPS = 15)                             │
+    │    • Prevents runaway infinite loops and billing spikes         │
+    └─────────────────────────────────┬───────────────────────────────┘
+                                      │
+                                      ▼
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ 5. OUTPUT GUARDRAIL                                             │
+    │    • Blocks accidental API key leakage                          │
+    │    • Re-hydrates PII from Vault: "{{EMAIL_1}}" -> "saif@..."    │
+    └─────────────────────────────────┬───────────────────────────────┘
+                                      │
+                                      ▼
+              [ Safe, Verified, Seamless Response to User ]
+```
+
+---
+
 ## 📋 The 1-Minute Summary Cheat Sheet
 
-| Term | What is it in plain English? | Everyday Analogy |
+| Term | What is it in plain English? | What We Built in Code |
 |---|---|---|
-| **Prompt Engineering** | Giving clear, structured instructions for a single question. | Giving an intern a well-written task checklist. |
-| **Loop Engineering** | Running the AI in a feedback loop so it can test its work and fix its own errors. | A writer writing a draft, proofreading it, fixing typos, and repeating until it's clean. |
-| **Tool Calling** | Giving the AI permission to request external actions (APIs, databases, files). | Giving a brain hands and eyes. |
-| **The Harness** | The complete software chassis (memory, sandbox, security, limits) enclosing the AI. | The car body, steering wheel, and safety seatbelts built around the raw engine. |
-| **Agentic Workflow** | An AI that doesn't just chat, but independently plans and executes multi-step work. | An autonomous robot vacuum finding its way around a living room. |
-| **Circuit Breaker** | A safety stop that kills the loop if it gets stuck or costs too much money. | A fuse box in your house that trips during a power surge. |
+| **Prompt Engineering** | Giving clear instructions for a single question. | `01-zero-shot` & `02-few-shot` with in-context examples. |
+| **Loop Engineering** | Running the AI in a feedback loop so it can test, observe, and correct itself. | `while (stepCount < MAX_STEPS)` state-machine in `03` & `04`. |
+| **Tool Calling** | Giving the AI permission to request external actions. | `getWeatherData` + `executeCommandCli` in `04` & `05`. |
+| **Zod Schema** | Forcing 100% type-safe JSON directly at the token generation layer. | `zodResponseFormat(AgentStepSchema, "agent_step")` in `05`. |
+| **Input Guardrails** | Blocking injections, jailbreaks, and sanitizing untrusted inputs. | Regex detectors + `<user_request>` sandboxing in `05`. |
+| **PII Vault** | Replacing sensitive data with IDs over the network and restoring them on output. | Reversible `maskPII()` and `restorePII()` in `05`. |
+| **The Harness** | The complete software chassis (memory, sandbox, security, limits) enclosing the AI. | The full production pipeline in `05-cot-with-tool-guardrail-schema.js`. |
+| **Circuit Breaker** | A safety stop that kills the loop if it gets stuck or costs too much money. | `MAX_STEPS = 15` in `05`. |
+
