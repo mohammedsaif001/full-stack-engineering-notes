@@ -166,6 +166,10 @@ async function main(prompt = "") {
   }
 }
 
+// main(
+//   'What is weather of Patiala, Delhi, Goa and then write the output this on a beautifuyll webpage. create a new folder saying weather and create all HTML CSS file there and then run this on my browser',
+// );
+
 main(
-  'What is weather of Patiala, Delhi, Goa and then write the output this on a beautifuyll webpage. create a new folder saying weather and create all HTML CSS file there and then run this on my browser',
+  'Build a funny functional design working TODO application and run on browser and store all files on todo folder',
 );
