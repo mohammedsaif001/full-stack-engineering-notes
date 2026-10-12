@@ -3,33 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LinkedIn Carousel: The Sequential Evolution of AuthN & AuthZ</title>
+    <title>LinkedIn Carousel: Complete Evolution of Authentication &amp; Authorization</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --bg: #fdfdfb;
-            --text-dark: #1a1a1a;
-            --text-medium: #4a4a4a;
+            --text-dark: #141414;
+            --text-medium: #383838;
+            --text-light: #666666;
             --accent: #e65100;
-            --danger: #c62828;
-            --success: #2e7d32;
-            --border: rgba(0, 0, 0, 0.08);
+            --accent-soft: #fff5ed;
+            --accent-border: #ffd8bf;
+            --danger: #b71c1c;
+            --danger-soft: #fdf2f2;
+            --danger-border: #ffcdd2;
+            --success: #1b5e20;
+            --success-soft: #f1f8e9;
+            --success-border: #c8e6c9;
+            --info: #0d47a1;
+            --info-soft: #e3f2fd;
+            --info-border: #bbdefb;
+            --border: rgba(0, 0, 0, 0.09);
+            --border-strong: rgba(0, 0, 0, 0.16);
             --card-bg: #ffffff;
-            --shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-            --code-bg: #f4f4f0;
+            --shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.03);
+            --code-bg: #f5f5f0;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            background: #e2e2e2;
+            background: #d8d8d8;
             font-family: 'Inter', sans-serif;
             color: var(--text-dark);
             -webkit-font-smoothing: antialiased;
         }
 
+        /* Screen View: 1080x1350 Standard Carousel */
         .slide {
             width: 1080px;
             height: 1350px;
@@ -37,101 +52,504 @@
             position: relative;
             display: flex;
             flex-direction: column;
-            padding: 100px;
+            padding: 70px 80px 45px 80px;
             margin: 40px auto;
             border: 1px solid var(--border);
-            box-shadow: 0 40px 100px -20px rgba(0,0,0,0.1);
+            box-shadow: 0 30px 70px -15px rgba(0,0,0,0.18);
             overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* Print / PDF View: Perfectly Fits A4 with Breathing Room & Zero Overflow */
+        @page {
+            size: A4 portrait;
+            margin: 10mm 12mm 10mm 12mm;
         }
 
         @media print {
-            body { background: transparent; }
-            .slide { margin: 0; border: none; page-break-after: always; box-shadow: none; }
+            html, body {
+                background: var(--bg) !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .slide {
+                width: 100% !important;
+                height: calc(297mm - 20mm) !important;
+                min-height: calc(297mm - 20mm) !important;
+                max-height: calc(297mm - 20mm) !important;
+                margin: 0 !important;
+                padding: 24px 28px 16px 28px !important;
+                border: none !important;
+                box-shadow: none !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                box-sizing: border-box !important;
+                overflow: hidden !important;
+            }
+
+            .footer {
+                margin-top: auto !important;
+                padding-top: 12px !important;
+                padding-bottom: 0 !important;
+            }
         }
 
-        .content { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; }
+        .content { 
+            position: relative; 
+            z-index: 1; 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-start;
+        }
 
         .footer {
             margin-top: auto;
             display: flex;
             justify-content: space-between;
-            align-items: flex-end;
-            padding-top: 40px;
+            align-items: center;
+            padding-top: 20px;
             border-top: 1px solid var(--border);
         }
 
-        .branding { font-size: 16px; font-weight: 500; color: var(--text-medium); letter-spacing: 0.5px; opacity: 0.85; text-transform: uppercase; }
-        .branding span { color: var(--accent); margin-right: 8px; font-weight: 700; }
-        .slide-num { font-size: 18px; font-weight: 600; color: var(--text-medium); }
+        .branding { 
+            font-size: 15.5px; 
+            font-weight: 600; 
+            color: var(--text-medium); 
+            letter-spacing: 0.8px; 
+            text-transform: uppercase; 
+        }
+        .branding span { color: var(--accent); margin-right: 8px; font-weight: 800; font-size: 18px; }
+        .slide-num { 
+            font-size: 16px; 
+            font-weight: 700; 
+            color: var(--text-medium); 
+            font-family: 'JetBrains Mono', monospace; 
+            letter-spacing: 1px;
+        }
 
-        h1 { font-family: 'Playfair Display', serif; font-size: 88px; font-weight: 800; line-height: 1.05; margin-bottom: 30px; color: var(--text-dark); letter-spacing: -1px; }
-        h2 { font-family: 'Playfair Display', serif; font-size: 58px; font-weight: 700; line-height: 1.1; margin-bottom: 32px; color: var(--text-dark); letter-spacing: -0.5px; }
-        
-        .chapter-title { color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 3px; font-size: 18px; margin-bottom: 20px; display: block; }
-        .intro-text { font-size: 26px; line-height: 1.55; color: var(--text-medium); max-width: 92%; margin-bottom: 40px; font-weight: 400; }
-        
-        .tree-container { display: flex; flex-direction: column; align-items: center; margin-top: 15px; margin-bottom: 25px; width: 100%; }
-        .tree-node { background: var(--card-bg); border: 1.5px solid var(--border); padding: 22px 36px; border-radius: 12px; font-weight: 600; font-size: 22px; box-shadow: var(--shadow); position: relative; z-index: 2; width: 100%; text-align: center; }
-        .tree-node.main { border-left: 5px solid var(--accent); text-align: left; }
-        .tree-node.highlight { background: #fff5ed; border-color: var(--accent); color: var(--accent); font-weight: 700; }
-        .tree-line { width: 2px; height: 24px; background: var(--border); }
+        /* Typography */
+        h1 { 
+            font-family: 'Playfair Display', serif; 
+            font-size: 76px; 
+            font-weight: 800; 
+            line-height: 1.1; 
+            margin-bottom: 20px; 
+            color: var(--text-dark); 
+            letter-spacing: -1.2px; 
+        }
 
-        .box-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; margin-top: 15px; }
-        .box-grid.single-col { grid-template-columns: 1fr; }
-        
-        .box-item { background: var(--card-bg); border-left: 5px solid var(--accent); border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 32px; border-radius: 14px; box-shadow: var(--shadow); }
-        .box-item.problem-box { border-left-color: var(--danger); background: #fdf2f2; }
-        .box-item.solution-box { border-left-color: var(--success); background: #f2f9f2; }
-        
-        .box-item h3 { font-family: 'Playfair Display', serif; font-size: 28px; margin-bottom: 12px; color: var(--text-dark); font-weight: 700; }
-        .box-item p { font-size: 20px; line-height: 1.5; color: var(--text-medium); font-weight: 400; }
-        
-        .tag { display: inline-block; background: #fff3e0; color: var(--accent); font-size: 14px; font-weight: 700; padding: 4px 14px; border-radius: 50px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        h2 { 
+            font-family: 'Playfair Display', serif; 
+            font-size: 46px; 
+            font-weight: 700; 
+            line-height: 1.16; 
+            margin-bottom: 14px; 
+            color: var(--text-dark); 
+            letter-spacing: -0.5px; 
+        }
+
+        .chapter-title { 
+            color: var(--accent); 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 3px; 
+            font-size: 14.5px; 
+            margin-bottom: 10px; 
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .intro-text { 
+            font-size: 22px; 
+            line-height: 1.52; 
+            color: var(--text-medium); 
+            margin-bottom: 24px; 
+            font-weight: 400; 
+        }
+
+        /* Component Containers: Balanced & Spacious */
+        .components-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+            width: 100%;
+        }
+
+        .box-grid { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 20px; 
+            width: 100%;
+        }
+
+        .box-grid.single-col { 
+            grid-template-columns: 1fr; 
+        }
+
+        .box-item { 
+            background: var(--card-bg); 
+            border: 1px solid var(--border); 
+            border-left: 5px solid var(--accent); 
+            padding: 24px 26px; 
+            border-radius: 12px; 
+            box-shadow: var(--shadow); 
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .box-item.neutral {
+            border-left-color: var(--text-dark);
+        }
+
+        .box-item.problem-box { 
+            border-left-color: var(--danger); 
+            background: var(--danger-soft); 
+            border-color: var(--danger-border);
+        }
+
+        .box-item.solution-box { 
+            border-left-color: var(--success); 
+            background: var(--success-soft); 
+            border-color: var(--success-border);
+        }
+
+        .box-item.info-box {
+            border-left-color: var(--info);
+            background: var(--info-soft);
+            border-color: var(--info-border);
+        }
+
+        .box-item h3 { 
+            font-family: 'Playfair Display', serif; 
+            font-size: 24px; 
+            margin-bottom: 10px; 
+            color: var(--text-dark); 
+            font-weight: 700; 
+            line-height: 1.25;
+        }
+
+        .box-item h4 {
+            font-family: 'Playfair Display', serif;
+            font-size: 21px;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+            font-weight: 700;
+        }
+
+        .box-item p { 
+            font-size: 19px; 
+            line-height: 1.52; 
+            color: var(--text-medium); 
+            font-weight: 400; 
+        }
+
+        .box-item p b {
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        /* Layman Analogy Card */
+        .analogy-card {
+            background: #fffcf8;
+            border: 1.5px dashed var(--accent-border);
+            border-left: 6px solid var(--accent);
+            border-radius: 12px;
+            padding: 22px 26px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .analogy-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .analogy-tag {
+            background: var(--accent);
+            color: #ffffff;
+            font-size: 12.5px;
+            font-weight: 800;
+            padding: 4px 12px;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+        }
+
+        .analogy-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .analogy-text {
+            font-size: 19.5px;
+            line-height: 1.55;
+            color: var(--text-dark);
+            font-style: italic;
+        }
+
+        /* Senior Tip / Note */
+        .senior-tip {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-left: 5px solid #0f172a;
+            border-radius: 10px;
+            padding: 18px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .senior-tip-title {
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #0f172a;
+        }
+
+        .senior-tip-body {
+            font-size: 18px;
+            line-height: 1.5;
+            color: var(--text-medium);
+        }
+
+        /* Tags and Pills */
+        .tag { 
+            display: inline-block; 
+            background: var(--accent-soft); 
+            color: var(--accent); 
+            font-size: 13px; 
+            font-weight: 700; 
+            padding: 4px 12px; 
+            border-radius: 50px; 
+            margin-bottom: 10px; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            width: fit-content;
+        }
         .tag.tag-danger { background: #ffebee; color: var(--danger); }
         .tag.tag-success { background: #e8f5e9; color: var(--success); }
+        .tag.tag-info { background: #e3f2fd; color: var(--info); }
+        .tag.tag-dark { background: #263238; color: #eceff1; }
 
-        .process-flow { display: flex; flex-direction: column; gap: 20px; margin-top: 25px; }
-        .process-step { display: flex; align-items: flex-start; gap: 24px; background: var(--card-bg); padding: 26px; border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
-        .process-number { background: var(--accent); color: #fff; font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 800; min-width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .process-details h4 { font-family: 'Playfair Display', serif; font-size: 24px; margin-bottom: 6px; color: var(--text-dark); }
-        .process-details p { font-size: 19px; line-height: 1.45; color: var(--text-medium); }
+        /* Process Steps */
+        .process-flow { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 14px; 
+            width: 100%;
+        }
 
-        .hero-slide { text-align: center; }
-        .hero-body { margin: auto 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .hero-subtitle { font-size: 30px; line-height: 1.5; color: var(--text-medium); max-width: 820px; margin: 0 auto 50px; font-family: 'Playfair Display', serif; font-style: italic; }
+        .process-step { 
+            display: flex; 
+            align-items: flex-start; 
+            gap: 20px; 
+            background: var(--card-bg); 
+            padding: 20px 24px; 
+            border: 1px solid var(--border); 
+            border-radius: 12px; 
+            box-shadow: var(--shadow-sm); 
+        }
 
-        .cta-btn { display: inline-block; border: 2px solid var(--accent); background: var(--accent); color: #ffffff; padding: 22px 52px; text-decoration: none; font-weight: 700; border-radius: 100px; font-size: 22px; margin-top: 30px; letter-spacing: 0.5px; box-shadow: 0 10px 25px rgba(230, 81, 0, 0.25); }
-        
-        .code-block { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px 24px; font-family: monospace; font-size: 18px; color: #2d3748; margin-top: 14px; line-height: 1.4; word-break: break-all; }
-        .tuple-badge { background: #1a1a1a; color: #ffab40; font-family: monospace; font-size: 19px; padding: 10px 16px; border-radius: 8px; margin-top: 10px; display: block; font-weight: 600; text-align: center; }
+        .process-number { 
+            background: var(--accent); 
+            color: #fff; 
+            font-family: 'Playfair Display', serif; 
+            font-size: 22px; 
+            font-weight: 800; 
+            min-width: 44px; 
+            height: 44px; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            flex-shrink: 0;
+        }
 
-        .tree-container { display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 10px; margin-bottom: 20px; }
+        .process-details h4 { 
+            font-family: 'Playfair Display', serif; 
+            font-size: 21px; 
+            margin-bottom: 4px; 
+            color: var(--text-dark); 
+        }
+        .process-details p { 
+            font-size: 18.5px; 
+            line-height: 1.48; 
+            color: var(--text-medium); 
+        }
+
+        /* Tree Containers (Pyramid Hierarchy) */
+        .tree-container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            width: 100%; 
+            gap: 0;
+        }
+
         .tree-node { 
             background: var(--card-bg); 
             border: 1.5px solid var(--border); 
-            border-left: 5px solid var(--text-dark);
-            padding: 18px 28px; 
+            border-left: 6px solid var(--text-dark);
+            padding: 18px 24px; 
             border-radius: 10px; 
             font-weight: 600; 
-            font-size: 21px; 
+            font-size: 20px; 
             box-shadow: var(--shadow); 
             width: 100%; 
-            text-align: left;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
-        .tree-node.main { border-left-color: var(--accent); }
-        .tree-node.highlight { background: #fff5ed; border-color: var(--accent); border-left: 5px solid var(--accent); color: var(--accent); font-weight: 700; }
-        .tree-line { width: 3px; height: 18px; background: rgba(0, 0, 0, 0.15); margin: 0 auto; }
 
-        .senior-note-box { background: #fff5ed; border-left: 6px solid var(--accent); border-radius: 14px; padding: 32px 36px; text-align: left; margin-top: 15px; box-shadow: var(--shadow); width: 100%; }
-        .senior-note-box h3 { font-family: 'Playfair Display', serif; font-size: 32px; color: var(--accent); margin-bottom: 14px; font-weight: 800; }
-        .senior-note-box p { font-size: 22px; line-height: 1.6; color: var(--text-dark); font-style: italic; font-family: 'Playfair Display', serif; }
+        .tree-node.main { border-left-color: var(--danger); background: #fffcfb; }
+        .tree-node.highlight { background: var(--accent-soft); border-color: var(--accent); border-left: 6px solid var(--accent); color: var(--accent); font-weight: 700; }
+        .tree-node.manager { border-left-color: #f57c00; }
+        .tree-node.user-level { border-left-color: #2e7d32; }
+
+        .tree-node .node-label { display: flex; align-items: center; gap: 12px; }
+        .tree-node .weight-badge { 
+            background: rgba(0,0,0,0.06); 
+            padding: 4px 10px; 
+            border-radius: 6px; 
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 16px; 
+            font-weight: 700;
+        }
+        .tree-node.highlight .weight-badge { background: #ffe0b2; color: #b73e00; }
+        .tree-node .node-desc { font-size: 16px; color: var(--text-light); font-weight: 500; }
+
+        .tree-line { width: 3px; height: 14px; background: rgba(0, 0, 0, 0.15); margin: 0 auto; }
+
+        /* Code and Tuples */
+        .code-block { 
+            background: var(--code-bg); 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            padding: 12px 18px; 
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 16.5px; 
+            color: #1e293b; 
+            margin-top: 8px; 
+            line-height: 1.48; 
+            word-break: break-all; 
+        }
+
+        .tuple-badge { 
+            background: #111827; 
+            color: #fde047; 
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 20px; 
+            padding: 14px 20px; 
+            border-radius: 10px; 
+            display: block; 
+            font-weight: 600; 
+            text-align: center; 
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+        }
+
+        /* Hero Slide */
+        .hero-slide { text-align: center; }
+        .hero-body { 
+            margin: auto 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 40px 0;
+        }
+        .hero-subtitle { 
+            font-size: 26px; 
+            line-height: 1.5; 
+            color: var(--text-medium); 
+            max-width: 860px; 
+            margin: 0 auto 36px; 
+            font-family: 'Playfair Display', serif; 
+            font-style: italic; 
+        }
+
+        .hero-roadmap {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            max-width: 900px;
+            margin-bottom: 40px;
+        }
+
+        .roadmap-pill {
+            background: #ffffff;
+            border: 1.5px solid var(--border);
+            padding: 10px 18px;
+            border-radius: 100px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-dark);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .roadmap-pill span { color: var(--accent); font-weight: 800; }
+
+        .cta-btn { 
+            display: inline-block; 
+            border: none; 
+            background: var(--accent); 
+            color: #ffffff; 
+            padding: 20px 48px; 
+            text-decoration: none; 
+            font-weight: 700; 
+            border-radius: 100px; 
+            font-size: 21px; 
+            letter-spacing: 0.5px; 
+            box-shadow: 0 12px 28px rgba(230, 81, 0, 0.28); 
+        }
+
+        /* Final Slide Takeaway */
+        .senior-note-box { 
+            background: var(--accent-soft); 
+            border-left: 6px solid var(--accent); 
+            border-radius: 14px; 
+            padding: 28px 32px; 
+            text-align: left; 
+            box-shadow: var(--shadow); 
+            width: 100%; 
+            margin: 20px 0;
+        }
+        .senior-note-box h3 { 
+            font-family: 'Playfair Display', serif; 
+            font-size: 28px; 
+            color: var(--accent); 
+            margin-bottom: 12px; 
+            font-weight: 800; 
+        }
+        .senior-note-box p { 
+            font-size: 20.5px; 
+            line-height: 1.6; 
+            color: var(--text-dark); 
+            font-style: italic; 
+            font-family: 'Playfair Display', serif; 
+        }
 
         .author-signature {
-            margin-top: 30px;
-            padding-top: 18px;
+            margin-top: 24px;
+            padding-top: 20px;
             border-top: 1px dashed rgba(0, 0, 0, 0.15);
             display: flex;
             flex-direction: column;
@@ -155,415 +573,1197 @@
         .author-email {
             font-size: 15px;
             color: var(--text-medium);
-            font-family: monospace;
+            font-family: 'JetBrains Mono', monospace;
             opacity: 0.85;
+        }
+
+        /* Comparison Table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+
+        .comparison-table th {
+            background: #f1f5f9;
+            color: var(--text-dark);
+            font-size: 16.5px;
+            font-weight: 700;
+            text-align: left;
+            padding: 14px 18px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .comparison-table td {
+            padding: 13px 18px;
+            font-size: 17px;
+            color: var(--text-medium);
+            border-bottom: 1px solid var(--border);
+            line-height: 1.45;
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .comparison-table td b {
+            color: var(--text-dark);
         }
     </style>
 </head>
 <body>
 
-    <!-- SLIDE 01: HERO SLIDE -->
+    <!-- ========================================== -->
+    <!-- SLIDE 01: HERO SLIDE                       -->
+    <!-- ========================================== -->
     <div class="slide hero-slide">
         <div class="content">
             <div class="hero-body">
-                <span class="chapter-title">System Architecture &amp; Security</span>
-                <h1>The Sequential<br>Evolution of<br>AuthN &amp; AuthZ</h1>
-                <p class="hero-subtitle">How Security Architecture Evolves: Stateful Sessions &rarr; RBAC &rarr; Scoped Multi-Tenant
-                    &rarr; ReBAC &rarr; ABAC</p>
+                <span class="chapter-title">System Architecture &bull; Complete Guide</span>
+                <h1>Demystifying Auth<br>From Zero to Production</h1>
+                <p class="hero-subtitle">How security architecture naturally evolves from simple sessions to distributed microservices,
+                    multi-tenant B2B SaaS, and fine-grained graph authorization.</p>
+                
+                <div class="hero-roadmap">
+                    <div class="roadmap-pill"><span>01</span> Sessions</div>
+                    <div class="roadmap-pill"><span>02</span> JWT Tokens</div>
+                    <div class="roadmap-pill"><span>03</span> Revocation</div>
+                    <div class="roadmap-pill"><span>04</span> OIDC Keys</div>
+                    <div class="roadmap-pill"><span>05</span> RBAC 0-30-70</div>
+                    <div class="roadmap-pill"><span>06</span> Multi-Tenant SaaS</div>
+                    <div class="roadmap-pill"><span>07</span> ReBAC &amp; Zanzibar</div>
+                    <div class="roadmap-pill"><span>08</span> ABAC Engine</div>
+                </div>
+
                 <div class="cta-btn">Swipe to Follow the Story &rarr;</div>
             </div>
         </div>
         <div class="footer">
             <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">01 / 14</div>
-        </div>
-    </div>
-
-    <!-- SLIDE 02: 01. STATEFUL AUTHENTICATION -->
-    <div class="slide">
-        <div class="content">
-            <span class="chapter-title">Step 01 &bull; Authentication</span>
-            <h2>Stateful Auth (Sessions)</h2>
-            <p class="intro-text">Most backend applications start here. Identity is managed on the server using centralized session
-                memory.</p>
-            
-            <div class="box-grid single-col">
-                <div class="box-item">
-                    <span class="tag">How It Works</span>
-                    <h3>Session Store Flow</h3>
-                    <p>When a user logs in, the server generates a random Session ID, stores session state inside Redis or PostgreSQL, and
-                        returns the Session ID in a set-cookie header. On every subsequent request, the server looks up the Session ID in
-                        the database.</p>
-                </div>
+            <div class="slide-num">01 / 25</div>
             </div>
-        </div>
-        <div class="footer">
-            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">02 / 14</div>
-        </div>
-    </div>
-
-    <!-- SLIDE 03: ❌ WHERE STATEFUL AUTH BREAKS -->
-    <div class="slide">
-        <div class="content">
-            <span class="chapter-title">The Bottleneck</span>
-            <h2>Why Stateful Auth Fails at Scale</h2>
-            <p class="intro-text">As user traffic scales and architectures transition into microservices, stateful authentication
-                hits hard operational walls.</p>
-            
-            <div class="box-grid">
-                <div class="box-item problem-box">
-                    <span class="tag tag-danger">Per-Request DB Hit</span>
-                    <h3>Database Latency</h3>
-                    <p>Every single incoming API call forces a round-trip network lookup to the session database, turning Redis/DB into
-                        a hot central bottleneck.</p>
-                </div>
-                <div class="box-item problem-box">
-                    <span class="tag tag-danger">Multi-Region Pain</span>
-                    <h3>Scaling Failure</h3>
-                    <p>Replicating stateful session stores synchronously across multi-region deployments or isolated microservices
-                        creates immense complexity.</p>
-                </div>
-                </div>
-                </div>
-                <div class="footer">
-                    <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-                    <div class="slide-num">03 / 14</div>
-                </div>
-                </div>
-                
-                <!-- SLIDE 04: 02. STATELESS AUTHENTICATION -->
-                <div class="slide">
-                    <div class="content">
-                        <span class="chapter-title">Step 02 &bull; The Fix</span>
-                        <h2>Stateless Auth (JWT Tokens)</h2>
-                        <p class="intro-text">To eliminate session database lookups, systems shift identity storage directly into
-                            self-contained
-                            cryptographic tokens.</p>
-                
-                        <div class="box-grid single-col">
+            </div>
+            <!-- ========================================== -->
+            <!-- SLIDE 02: WHAT IS AUTHENTICATION (AuthN)   -->
+            <!-- ========================================== -->
+            <div class="slide">
+                <div class="content">
+                    <span class="chapter-title">Step 01 &bull; Identity</span>
+                    <h2>What is Authentication (AuthN)?</h2>
+                    <p class="intro-text">Before you give anyone a key to the house, you must confirm who is knocking at the front
+                        door. AuthN answers one fundamental question: <b>"Who are you?"</b></p>
+                    
+                    <div class="components-stack">
+                        <div class="analogy-card">
+                            <div class="analogy-header">
+                                <span class="analogy-tag">Layman Analogy</span>
+                                <span class="analogy-title">The Airport Security Checkpoint</span>
+                            </div>
+                            <p class="analogy-text">When you arrive at airport security, you hand the officer your passport. They compare
+                                your face
+                                to the photo and confirm your name. They aren't asking if you bought first-class or economy yet; they are
+                                strictly
+                                verifying your real identity.</p>
+                        </div>
+                    
+                        <div class="box-grid">
+                            <div class="box-item">
+                                <span class="tag">The Identity Proof</span>
+                                <h3>Credentials Handshake</h3>
+                                <p>The client supplies proof: email + password, OTP, or biometric passkey. The backend verifies against
+                                    salted
+                                    cryptographic hashes (Argon2 / Bcrypt).</p>
+                            </div>
+                    
                             <div class="box-item solution-box">
-                                <span class="tag tag-success">The Stateless Evolution</span>
-                                <h3>Cryptographic Claims</h3>
-                                <p>The server signs a JWT containing user claims (User ID, Email, Expiry). Any receiving API server
-                                    verifies the
-                                    token signature locally using cryptography without touching a central database.</p>
+                                <span class="tag tag-success">The Verified Output</span>
+                                <h3>The Confirmed Identity</h3>
+                                <p>Once proven, the server outputs a verified claim: a <b>User ID</b> (e.g. <code>usr_9812</code>). This ID
+                                    is
+                                    the foundation for every subsequent request.</p>
+                            </div>
+                        </div>
+                    
+                        <div class="senior-tip">
+                            <div class="senior-tip-title">Senior Dev Rule</div>
+                            <div class="senior-tip-body"><b>Authentication is binary:</b> identity is proven (200 OK) or invalid (401
+                                Unauthorized). It has zero knowledge of permissions or roles.</div>
+                        </div>
+                    </div>
+                    </div>
+                    <div class="footer">
+                        <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                        <div class="slide-num">02 / 25</div>
+                    </div>
+                    </div>
+                    
+                    <!-- ========================================== -->
+                    <!-- SLIDE 03: STATEFUL SESSIONS                -->
+                    <!-- ========================================== -->
+                    <div class="slide">
+                        <div class="content">
+                            <span class="chapter-title">Step 02 &bull; Sessions</span>
+            <h2>Stateful Auth (Sessions)</h2>
+            <p class="intro-text">Most backend systems start here. Identity is remembered on the server by storing active user
+                sessions inside centralized server memory or a database.</p>
+            
+            <div class="components-stack">
+                <div class="analogy-card">
+                    <div class="analogy-header">
+                        <span class="analogy-tag">Layman Analogy</span>
+                        <span class="analogy-title">The Hotel Front Desk Register</span>
+                    </div>
+                    <p class="analogy-text">When you check in, the front desk receptionist writes your name into their big guestbook
+                        and hands you a brass locker key #42. Every time you ask for room service, they walk to the desk and look up
+                        #42 in the guestbook to see who you are.</p>
+                </div>
+            
+                <div class="box-grid">
+                    <div class="box-item">
+                        <span class="tag">Client Side</span>
+                        <h3>Opaque Cookie</h3>
+                        <p>The client receives a random session string in an <code>HttpOnly</code> cookie (<code>sid=sess_9f82d1a</code>). The
+                            browser knows nothing about user details.</p>
+                        </div>
+                        <div class="box-item">
+                            <span class="tag">Server Side</span>
+                            <h3>Central Store (Redis)</h3>
+                            <p>The server keeps full user state (User ID, IP, created time, last active) inside memory cache, indexed by the
+                                session ID.</p>
+                        </div>
+                        </div>
+                        
+                        <div class="senior-tip">
+                            <div class="senior-tip-title">Why Developers Love It Early On</div>
+                            <div class="senior-tip-body">Instant revocation! To log a user out or ban an account, just run
+                                <code>redis.del(sessionId)</code>. The session is destroyed immediately.
+                            </div>
+                        </div>
+                        </div>
+                        </div>
+                        <div class="footer">
+                            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                            <div class="slide-num">03 / 25</div>
+                            </div>
+                            </div>
+                            <!-- ========================================== -->
+                            <!-- SLIDE 04: THE SESSION LIFECYCLE            -->
+                            <!-- ========================================== -->
+                            <div class="slide">
+                                <div class="content">
+                                    <span class="chapter-title">Step 02 &bull; Under the Hood</span>
+                                    <h2>The 3-Step Session Flow</h2>
+                                    <p class="intro-text">How stateful authentication executes across every HTTP request cycle between browser,
+                                        server, and session database.</p>
+                                    <div class="components-stack">
+                                        <div class="process-flow">
+                                            <div class="process-step">
+                                                <div class="process-number">1</div>
+                                                <div class="process-details">
+                                                    <h4>Login &amp; Session Creation</h4>
+                                                    <p>User submits credentials. Server verifies password, creates a random session ID, and writes
+                                                        user metadata into Redis or PostgreSQL.</p>
+                                                </div>
+                                            </div>
+                                            <div class="process-step">
+                                                <div class="process-number">2</div>
+                                                <div class="process-details">
+                                                    <h4>Cookie Set in Browser</h4>
+                                                    <p>The server responds with <code>Set-Cookie: sid=sess_9f82d1a; HttpOnly; Secure</code>. The
+                                                        browser automatically stores and attaches it to future requests.</p>
+                                                </div>
+                                            </div>
+                                            <div class="process-step">
+                                                <div class="process-number">3</div>
+                                                <div class="process-details">
+                                                    <h4>Database Lookup on Every Request</h4>
+                                                    <p>On every single API call, browser passes the cookie. The server executes a database query:
+                                                        <i>"Does sid sess_9f82d1a exist in Redis and is it active?"</i>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <div class="senior-tip">
+                                        <div class="senior-tip-title">Notice the Inefficiency</div>
+                                        <div class="senior-tip-body">Step 3 happens on <b>every single HTTP request</b>. If a user browses 50
+                                            pages, your session store handles 50 read queries just to check who they are!</div>
+                                    </div>
+                                    </div>
+                                    </div>
+                                    <div class="footer">
+                                        <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                                        <div class="slide-num">04 / 25</div>
+                                    </div>
+                                    </div>
+                                    
+                                    <!-- ========================================== -->
+                                    <!-- SLIDE 05: SESSIONS BOTTLENECK: DB HITS     -->
+                                    <!-- ========================================== -->
+                                    <div class="slide">
+                                        <div class="content">
+                                        <span class="chapter-title">The Bottleneck &bull; Scale Limits</span>
+                                        <h2>Why Sessions Fail at Scale (Part 1)</h2>
+                                        <p class="intro-text">Stateful sessions work well for small monoliths. But as traffic surges and applications
+                                            split, sessions hit harsh operational walls.</p>
+                                        <div class="components-stack">
+                                    <div class="box-grid">
+                                        <div class="box-item problem-box">
+                                            <span class="tag tag-danger">Bottleneck 01</span>
+                                            <h3>Per-Request Database Hit</h3>
+                                            <p>10,000 incoming requests per second forces <b>10,000 read queries</b> on your session store every
+                                                second. Redis or Postgres becomes a flaming bottleneck.</p>
+                                            </div>
+                        
+                                        <div class="box-item problem-box">
+                                            <span class="tag tag-danger">Bottleneck 02</span>
+                                            <h3>Microservices Connection Sprawl</h3>
+                                            <p>If Payment, Booking, and Chat services are separate microservices, all of them must maintain
+                                                active connection pools to the central session store.</p>
+                                            </div>
+                                            </div>
+                                            
+                                            <div class="box-item neutral">
+                                                <span class="tag tag-dark">The Architectural Limit</span>
+                                                <h3>The Single Point of Failure</h3>
+                                                <p>If your central Redis session cache goes down or experiences memory pressure, <b>every single service
+                                                        in your entire company goes down simultaneously</b>.</p>
+                                            </div>
+                                            
+                                            <div class="senior-tip">
+                                                <div class="senior-tip-title">The Fundamental Problem</div>
+                                                <div class="senior-tip-body">The root cause is <b>shared state</b>. To scale horizontally, servers need
+                                                    to be <b>stateless</b>: verifying identity without querying any shared database.</div>
                 </div>
             </div>
             </div>
             <div class="footer">
                 <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-                <div class="slide-num">04 / 14</div>
+            <div class="slide-num">05 / 25</div>
+            </div>
+            </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 06: SESSIONS BOTTLENECK: REGIONS     -->
+    <!-- ========================================== -->
+    <div class="slide">
+        <div class="content">
+            <span class="chapter-title">The Bottleneck &bull; Scale Limits</span>
+            <h2>Why Sessions Fail at Scale (Part 2)</h2>
+            <p class="intro-text">When your product expands to global multi-region deployments, centralized session storage breaks
+                down completely.</p>
+            
+            <div class="components-stack">
+                <div class="box-grid">
+                    <div class="box-item problem-box">
+                        <span class="tag tag-danger">Bottleneck 03</span>
+                        <h3>Multi-Region Replication Lag</h3>
+                        <p>If a user logs in via US-East, their session lives in US-East. When they hit edge servers in EU-West or
+                            Asia,
+                            cross-region replication lag creates session drops and 401 errors.</p>
+                    </div>
+            
+                    <div class="box-item problem-box">
+                        <span class="tag tag-danger">Bottleneck 04</span>
+                        <h3>Memory Exhaustion</h3>
+                        <p>Holding 10 million active concurrent sessions inside Redis RAM consumes massive cloud infrastructure
+                            dollars just to
+                            maintain idle user state.</p>
+                    </div>
                 </div>
+            
+                <div class="analogy-card">
+                    <div class="analogy-header">
+                        <span class="analogy-tag">Mental Model</span>
+                        <span class="analogy-title">The Global Hotel Problem</span>
+                    </div>
+                    <p class="analogy-text">Imagine checking in at a hotel in New York, but when you visit their London branch, the
+                        receptionist has to make an international phone call back to New York to check if your key is still valid!
+                    </p>
                 </div>
-            <!-- SLIDE 05: ❌ WHERE NAIVE STATELESS AUTH BREAKS -->
+            </div>
+            </div>
+            <div class="footer">
+                <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                <div class="slide-num">06 / 25</div>
+            </div>
+            </div>
+            
+            <!-- ========================================== -->
+            <!-- SLIDE 07: INTRODUCING JWT                  -->
+            <!-- ========================================== -->
             <div class="slide">
                 <div class="content">
-                    <span class="chapter-title">The Security Flaw</span>
-                    <h2>The Microservices Key Dilemma</h2>
-                    <p class="intro-text">Stateless JWTs solve database lookups, but naive implementations create severe
-                        microservices security risks.</p>
-            
-            <div class="box-grid">
-                <div class="box-item problem-box">
-                    <span class="tag tag-danger">Symmetric Keys (HS256)</span>
-                    <h3>Shared Secret Risk</h3>
-                    <p>Sharing 1 secret key across 10 microservices means if 1 service is breached, an attacker can forge tokens for all
-                        10 services.</p>
+                    <span class="chapter-title">Step 03 &bull; Stateless Auth</span>
+                    <h2>Stateless Auth (JWT Tokens)</h2>
+            <p class="intro-text">Instead of keeping session state on the server, what if the server gives the user a
+                self-contained, cryptographically signed token? Enter the <b>JSON Web Token (JWT)</b>.</p>
+            <div class="components-stack">
+                <div class="analogy-card">
+                    <div class="analogy-header">
+                        <span class="analogy-tag">Layman Analogy</span>
+                        <span class="analogy-title">The Sealed Festival Wristband</span>
+                    </div>
+                    <p class="analogy-text">Instead of checking the front desk register, the festival gives you a tamper-proof
+                        wristband stamped with a holographic seal. Any bouncer at any stage can glance at the holographic seal to
+                        verify it's authentic without calling the box office!</p>
                 </div>
-                <div class="box-item problem-box">
-                    <span class="tag tag-danger">Central Check Hop</span>
-                    <h3>Auth Service Dependency</h3>
-                    <p>If microservices call the Auth service on every request to verify tokens, you re-introduce the exact network
-                        bottleneck you tried to solve.</p>
+                <div class="box-item solution-box">
+                    <span class="tag tag-success">The Stateless Evolution</span>
+                    <h3>Self-Contained Cryptographic Proof</h3>
+                    <p>The token contains the user's identity and expiration time directly inside itself. Any receiving API server
+                        verifies
+                        the signature locally in memory in <b>0.1ms</b> without touching a database.</p>
+                </div>
+            
+                <div class="senior-tip">
+                    <div class="senior-tip-title">Why Microservices Love It</div>
+                    <div class="senior-tip-body">Whether you have 2 servers or 2,000 servers across 5 continents, all of them can
+                        verify
+                        incoming JWTs independently without sharing a database.</div>
+                </div>
+            </div>
+            </div>
+            <div class="footer">
+                <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                <div class="slide-num">07 / 25</div>
+            </div>
+            </div>
+            <!-- ========================================== -->
+            <!-- SLIDE 08: ANATOMY OF A JWT                 -->
+            <!-- ========================================== -->
+            <div class="slide">
+                <div class="content">
+                    <span class="chapter-title">Step 03 &bull; Under the Hood</span>
+                    <h2>Anatomy of a JSON Web Token</h2>
+                    <p class="intro-text">A JWT is a compact, URL-safe string composed of three distinct base64url-encoded parts
+                        separated
+                        by dots.</p>
+            
+                    <div class="components-stack">
+                        <div class="box-item">
+                            <span class="tag">The Structure</span>
+                            <h3>Three Parts Separated by Dots</h3>
+                            <div class="code-block" style="color: #b71c1c; font-weight: 600; font-size: 18px;">
+                                header.<span style="color: #0d47a1;">payload</span>.<span style="color: #2e7d32;">signature</span>
+                            </div>
+                            <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;">
+                                <p><b>1. Header (Red):</b> Alg &amp; Token type (e.g. <code>{"alg": "RS256"}</code>).</p>
+                                <p><b>2. Payload (Blue):</b> User claims (e.g.
+                                    <code>{"sub": "usr_123", "email": "saif@co.com", "exp": 1729000}</code>).
+                                </p>
+                                <p><b>3. Signature (Green):</b> Cryptographic hash verifying the token hasn't been modified by 1
+                                    bit.</p>
+                            </div>
+                        </div>
+            
+                        <div class="senior-tip">
+                            <div class="senior-tip-title">Critical Security Warning</div>
+                            <div class="senior-tip-body"><b>JWTs are signed, NOT encrypted!</b> Anyone can paste a JWT into jwt.io
+                                and read
+                                the payload. Never put passwords, API keys, or credit cards inside a JWT payload.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer">
+                    <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                    <div class="slide-num">08 / 25</div>
+                </div>
+            </div>
+            <!-- ========================================== -->
+            <!-- SLIDE 09: REVOKING JWTS: THE PARADOX       -->
+            <!-- ========================================== -->
+            <div class="slide">
+                <div class="content">
+                    <span class="chapter-title">Step 04 &bull; Security Challenge</span>
+                    <h2>The Stateless Paradox</h2>
+                    <p class="intro-text">If a JWT is stolen or compromised, how do you instantly cancel or "delete" it before its
+                        expiration time?</p>
+            
+                    <div class="components-stack">
+                        <div class="box-item problem-box">
+                            <span class="tag tag-danger">The Core Dilemma</span>
+                            <h3>The Client-Side Token Paradox</h3>
+                            <p>Because the token lives in the user's browser, you cannot reach into their machine and delete it. As
+                                long as the cryptographic signature is mathematically valid and <code>exp &gt; Date.now()</code>,
+                                any server will accept it!</p>
+                        </div>
+            
+                        <div class="box-item solution-box">
+                            <span class="tag tag-success">Strategy 01</span>
+                            <h3>Short-Lived Access + Refresh Token</h3>
+                            <p>Set Access Token expiry to <b>10 minutes</b>. Issue a long-lived Refresh Token stored securely in
+                                your DB. If compromised, revoke the Refresh Token in DB; attacker access dies within 10 minutes max.
+                            </p>
+                        </div>
+            
+                        <div class="senior-tip">
+                            <div class="senior-tip-title">Trade-off</div>
+                            <div class="senior-tip-body">Strategy 1 is standard across the industry (Google, Auth0). But what if 10
+                                minutes of attacker access is still too long for your compliance team?</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer">
+                    <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                    <div class="slide-num">09 / 25</div>
+                </div>
+            </div>
+            
+            <!-- ========================================== -->
+            <!-- SLIDE 10: INSTANT REVOCATION STRATEGIES    -->
+            <!-- ========================================== -->
+            <div class="slide">
+                <div class="content">
+                    <span class="chapter-title">Step 04 &bull; Production Solutions</span>
+                    <h2>Instant Revocation in Production</h2>
+                    <p class="intro-text">Two battle-tested techniques to achieve instant 1-millisecond token invalidation without
+                        bringing back database lookup latency.</p>
+            
+                    <div class="components-stack">
+                        <div class="box-item">
+                            <span class="tag tag-info">Strategy 02</span>
+                            <h3>Redis Deny-List (Blacklist) with TTL</h3>
+                            <p>When a user logs out, push the token's <code>jti</code> (Token ID) to Redis with a TTL matching its
+                                remaining life. Servers only check Redis for blacklisted IDs, keeping memory tiny.</p>
+                        </div>
+            
+                        <div class="box-item solution-box">
+                            <span class="tag tag-success">Strategy 03 &bull; Gold Standard</span>
+                            <h3>The User `token_version` Counter</h3>
+                            <p>Add <code>token_version: 1</code> to your user table and include it in JWT claims. When a user clicks
+                                "Log out all devices" or changes password:</p>
+                            <div class="code-block" style="background: #ffffff;">
+                                UPDATE users SET token_version = token_version + 1 WHERE id = 'usr_123';
+                            </div>
+                            <p style="margin-top: 8px;">If <code>jwt.token_version &lt; db.token_version</code>, reject immediately!
+                                All previously issued tokens die in 1 millisecond globally.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer">
+                    <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                    <div class="slide-num">10 / 25</div>
+                </div>
+            </div>
+            <!-- ========================================== -->
+            <!-- SLIDE 11: SYMMETRIC KEYS IN MICROSERVICES  -->
+            <!-- ========================================== -->
+            <div class="slide">
+                <div class="content">
+                    <span class="chapter-title">Step 05 &bull; Key Architecture</span>
+                    <h2>The Symmetric Key Vulnerability</h2>
+                    <p class="intro-text">In a monolith, 1 shared secret works. But in a distributed system with 20 microservices,
+                        naive symmetric encryption (HS256) is a disaster waiting to happen.</p>
+            
+                    <div class="components-stack">
+                        <div class="box-item problem-box">
+                            <span class="tag tag-danger">Symmetric Signing (HS256)</span>
+                            <h3>The Shared Secret Vulnerability</h3>
+                            <p><b>One secret key</b> is used both to sign AND verify tokens. If you share this secret with 20
+                                microservices, a breach in 1 low-priority service allows attackers to forge tokens for everything.
+                            </p>
+                        </div>
+            
+                        <div class="analogy-card">
+                            <div class="analogy-header">
+                                <span class="analogy-tag">Layman Analogy</span>
+                                <span class="analogy-title">The Master Key Maker</span>
+                            </div>
+                            <p class="analogy-text">Imagine if every hotel cleaner, chef, and valet didn't just have room keys, but
+                                had the master machine that cuts new room keys! If one valet gets robbed, the thief can mint keys
+                                for every room in the hotel.</p>
+                        </div>
+            
+                        <div class="senior-tip">
+                            <div class="senior-tip-title">The Dilemma</div>
+                            <div class="senior-tip-body">We need a way for services to <b>verify</b> tokens without giving them the
+                                ability to <b>create</b> tokens.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer">
+                    <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                    <div class="slide-num">11 / 25</div>
+                </div>
+            </div>
+            <!-- ========================================== -->
+            <!-- SLIDE 12: ASYMMETRIC KEYS (RS256)          -->
+            <!-- ========================================== -->
+            <div class="slide">
+                <div class="content">
+                    <span class="chapter-title">Step 05 &bull; The Fix</span>
+                    <h2>Asymmetric Keys (RS256)</h2>
+                    <p class="intro-text">Separate the power to sign tokens from the power to verify tokens using Public/Private Key
+                        Cryptography.</p>
+            
+                    <div class="components-stack">
+                        <div class="analogy-card">
+                            <div class="analogy-header">
+                                <span class="analogy-tag">Layman Analogy</span>
+                                <span class="analogy-title">The Royal Wax Seal &amp; Stamp</span>
+                            </div>
+                            <p class="analogy-text">The King keeps the physical metal wax stamp locked in his royal safe (Private
+                                Key). Everyone across the kingdom knows what the royal seal looks like (Public Key). Anyone can
+                                verify the seal on a decree, but nobody can forge a new one.</p>
+                        </div>
+                        <div class="box-grid">
+                            <div class="box-item">
+                                <span class="tag tag-dark">Private Key</span>
+                                <h3>Only on Auth Service</h3>
+                                <p>Used strictly to sign new JWTs upon login. Stays locked inside the Auth service; never leaves it.
+                                </p>
+                            </div>
+                            <div class="box-item solution-box">
+                                <span class="tag tag-success">Public Key</span>
+                                <h3>Shared with All Services</h3>
+                                <p>Used by Booking, Payment, and Chat services to verify signatures locally in 0.1ms with zero leak
+                                    risk.</p>
+                            </div>
+                        </div>
+                        <div class="senior-tip">
+                            <div class="senior-tip-title">Zero Trust Achieved</div>
+                            <div class="senior-tip-body">Even if an attacker gains root access to your Chat service, they only steal
+                                the Public Key. They cannot forge or tamper with tokens.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer">
+                    <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                    <div class="slide-num">12 / 25</div>
+                </div>
+            </div>
+            <!-- ========================================== -->
+            <!-- SLIDE 13: OIDC & JWKS                      -->
+            <!-- ========================================== -->
+            <div class="slide">
+                <div class="content">
+                    <span class="chapter-title">Step 06 &bull; Production Standards</span>
+                    <h2>OIDC &amp; Automated Key Discovery</h2>
+                    <p class="intro-text">If public keys rotate periodically across dozens of services, how do we prevent
+                        hardcoding? We use <b>OpenID Connect (OIDC)</b>.</p>
+            
+                    <div class="components-stack">
+                        <div class="box-item">
+                            <span class="tag tag-info">The Standard Discovery Spec</span>
+                            <h3>The Well-Known Configuration Endpoint</h3>
+                            <p>Every OIDC-compliant provider exposes a standardized discovery JSON route:</p>
+                            <div class="code-block">GET /.well-known/openid-configuration</div>
+                            <p style="margin-top: 10px;">This returns the authoritative endpoints and the <b>JWKS URI</b> (JSON Web
+                                Key Set):</p>
+                            <div class="code-block">{ "issuer": "auth.co", "jwks_uri": "https://auth.co/.well-known/jwks.json" }
+                            </div>
+                        </div>
+                        <div class="box-item solution-box">
+                            <span class="tag tag-success">Automated Key Rotation</span>
+                            <h3>Zero Redeployments</h3>
+                            <p>Microservices fetch public keys from the JWKS URI once on startup, cache them in memory, and
+                                auto-refresh them when a key rotates without redeploying code.</p>
+                            </div>
+                            </div>
+                            </div>
+                            <div class="footer">
+                                <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                                <div class="slide-num">13 / 25</div>
+                            </div>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- SLIDE 14: OAUTH 2.0 VS OIDC                -->
+                            <!-- ========================================== -->
+                            <div class="slide">
+                                <div class="content">
+                                    <span class="chapter-title">Step 06 &bull; Framework Clarity</span>
+                                    <h2>OAuth 2.0 vs OpenID Connect</h2>
+                                    <p class="intro-text">These two terms are constantly confused. Here is the definitive distinction every senior
+                                        engineer knows.</p>
+                            
+                                    <div class="components-stack">
+                                        <table class="comparison-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Dimension</th>
+                                                    <th>OAuth 2.0</th>
+                                                    <th>OpenID Connect (OIDC)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><b>Core Purpose</b></td>
+                                                    <td>Authorization (Delegation)</td>
+                                                    <td>Authentication (Identity)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><b>Question</b></td>
+                                                    <td>"What can this app access?"</td>
+                                                    <td>"Who is this user?"</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><b>Output Token</b></td>
+                                                    <td>Access Token (opaque or JWT)</td>
+                                                    <td>ID Token (JWT with user claims)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><b>Analogy</b></td>
+                                                    <td>The Valet Key for a car</td>
+                                                    <td>Your State Driver's License</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                            
+                                        <div class="senior-tip">
+                                            <div class="senior-tip-title">How They Relate</div>
+                                            <div class="senior-tip-body"><b>OIDC is built directly on top of OAuth 2.0.</b> OAuth 2.0 handles the
+                                                secure code-for-token redirect mechanics; OIDC adds the standardized user identity layer.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="footer">
+                                    <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                    <div class="slide-num">14 / 25</div>
+                    </div>
+                    </div>
+            <!-- ========================================== -->
+            <!-- SLIDE 15: DRAWBACKS OF OIDC IN SMALL APPS  -->
+            <!-- ========================================== -->
+            <div class="slide">
+                <div class="content">
+                    <span class="chapter-title">Step 07 &bull; Pragmatic Engineering</span>
+                    <h2>The Dark Side: OIDC in Small Apps</h2>
+                    <p class="intro-text">Senior engineering is about picking the right tool for the job. Shoehorning enterprise
+                        OIDC into small applications is a major mistake.</p>
+            
+                    <div class="components-stack">
+                <div class="box-grid">
+                    <div class="box-item problem-box">
+                        <span class="tag tag-danger">Drawback 01</span>
+                        <h3>Massive Over-Engineering</h3>
+                        <p>Implementing redirect URIs, state parameters, PKCE challenges, code exchanges, and JWKS cache clients for an MVP with
+                            2 developers turns simple signup into a nightmare.</p>
+                        </div>
+                        
+                        <div class="box-item problem-box">
+                            <span class="tag tag-danger">Drawback 02</span>
+                            <h3>Network &amp; Redirect Latency</h3>
+                            <p>Every login requires external browser redirects and backchannel HTTP requests between browser, backend, and
+                                provider,
+                                adding 400-800ms to user onboarding.</p>
+                        </div>
+                        </div>
+                        
+                        <div class="analogy-card">
+                            <div class="analogy-header">
+                                <span class="analogy-tag">Mental Model</span>
+                                <span class="analogy-title">The Enterprise Hammer</span>
+                            </div>
+                            <p class="analogy-text">Using a full-blown OIDC suite for a small 1-database monolith is like hiring an armored bank
+                                truck with armed guards just to deliver a pizza down the street!</p>
+                        </div>
+                        </div>
+                        </div>
+                        <div class="footer">
+                            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                            <div class="slide-num">15 / 25</div>
+                        </div>
+                        </div>
+                        <!-- ========================================== -->
+                        <!-- SLIDE 16: VENDOR LOCK-IN & ALTERNATIVES    -->
+                        <!-- ========================================== -->
+                        <div class="slide">
+                            <div class="content">
+                                <span class="chapter-title">Step 07 &bull; Pragmatic Choices</span>
+                                <h2>Vendor Costs &amp; The Simpler Path</h2>
+                                <p class="intro-text">The hidden costs of third-party auth platforms and when to keep your architecture lean.
+                                </p>
+                                <div class="components-stack">
+                                    <div class="box-grid">
+                                <div class="box-item problem-box">
+                                    <span class="tag tag-danger">The Cost Trap</span>
+                                    <h3>Monthly Active User Pricing</h3>
+                                    <p>Outsourcing to OIDC providers (Auth0/Okta) starts free, but escalates drastically ($1,000s/mo for
+                                        custom domains, enterprise SSO, and multi-tenancy as MAUs grow).</p>
+                                    </div>
+                                    
+                                    <div class="box-item solution-box">
+                                        <span class="tag tag-success">The Lean Alternative</span>
+                                        <h3>HTTP-Only Cookie Sessions</h3>
+                                        <p>For a monolith with 1 database and &lt;50k users, <b>secure HTTP-only cookie sessions</b> or
+                                            basic JWTs are 10x faster to build, simpler to debug, and free.</p>
+                                    </div>
+                                    </div>
+                                    
+                                    <div class="senior-tip">
+                                        <div class="senior-tip-title">Engineering Wisdom</div>
+                                        <div class="senior-tip-body">Don't adopt enterprise infrastructure until you have enterprise scale.
+                                            Match your auth architecture to your team size and traffic.</div>
+                                    </div>
+                                    </div>
+                                    </div>
+                                    <div class="footer">
+                                        <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                                        <div class="slide-num">16 / 25</div>
+                                    </div>
+                                    </div>
+                                    <!-- ========================================== -->
+                                    <!-- SLIDE 17: INTRODUCING AUTHORIZATION (AuthZ) -->
+                                    <!-- ========================================== -->
+                                    <div class="slide">
+                                        <div class="content">
+                                            <span class="chapter-title">Step 08 &bull; The Great Split</span>
+                                            <h2>Entering Authorization (AuthZ)</h2>
+                                            <p class="intro-text">Now that we know who the user is, we face the second challenge: <b>"What are they allowed
+                                                    to do?"</b> This is Authorization (AuthZ).</p>
+                                    
+                                            <div class="components-stack">
+                                                <div class="analogy-card">
+                                                    <div class="analogy-header">
+                                                        <span class="analogy-tag">Layman Analogy</span>
+                                                        <span class="analogy-title">The Corporate Office Badge</span>
+                                                    </div>
+                                                    <p class="analogy-text">Showing your badge to the front desk confirms you are Mohammed Saif, an employee
+                                                        (AuthN). But when you swipe your badge at the Server Room door, the electronic lock denies you entry
+                                                        because you don't have DevOps clearance (AuthZ).</p>
+                                                </div>
+                                    
+                                                <div class="box-grid">
+                                                    <div class="box-item">
+                                                        <span class="tag">Authentication (AuthN)</span>
+                                                        <h3>Identity Handshake</h3>
+                                                        <p>Checks credentials, proves identity, produces User ID. Happens once at the entrance.</p>
+                                                    </div>
+                                                    <div class="box-item solution-box">
+                                                        <span class="tag tag-success">Authorization (AuthZ)</span>
+                                                        <h3>Permission Enforcement</h3>
+                                                        <p>Checks roles and scopes. Evaluates a boolean (Allow/Deny) on <b>every single action</b>.</p>
+                                                    </div>
+                                                </div>
+                                    
+                                                <div class="senior-tip">
+                                                    <div class="senior-tip-title">The Cardinal Rule</div>
+                                                    <div class="senior-tip-body">Never assume authentication implies permission. Just because someone holds
+                                                        a valid JWT token does not mean they have permission to delete a customer record.</div>
                 </div>
             </div>
         </div>
         <div class="footer">
             <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">05 / 14</div>
+            <div class="slide-num">17 / 25</div>
         </div>
     </div>
 
-    <!-- SLIDE 06: 03. ASYMMETRIC KEYS & OIDC -->
+    <!-- ========================================== -->
+    <!-- SLIDE 18: RBAC & PYRAMID WEIGHTS           -->
+    <!-- ========================================== -->
     <div class="slide">
         <div class="content">
-            <span class="chapter-title">Step 03 &bull; Production AuthN</span>
-            <h2>Asymmetric Keys &amp; OIDC</h2>
-            <p class="intro-text">Decoupled microservices identity is solved using Asymmetric Key Pairs (RS256) and OpenID Connect
-                (OIDC) standards.</p>
+            <span class="chapter-title">Step 09 &bull; Role Hierarchy</span>
+            <h2>Role-Based Access Control (RBAC)</h2>
+            <p class="intro-text">RBAC groups permissions into assigned roles. Instead of string checks, senior engineers use
+                numeric pyramid weights.</p>
             
-            <div class="process-flow">
-                <div class="process-step">
-                    <div class="process-number">1</div>
-                    <div class="process-details">
-                        <h4>Private Key Signing</h4>
-                        <p>Auth Service keeps the Private Key secret and uses it to sign JWT tokens upon login.</p>
-                    </div>
-                </div>
-                <div class="process-step">
-                    <div class="process-number">2</div>
-                    <div class="process-details">
-                        <h4>OIDC Service Discovery &amp; JWKS</h4>
-                        <p>Services fetch the Public Key from GET <code>/.well-known/openid-configuration</code> and cache it locally.</p>
-                    </div>
-                </div>
-                <div class="process-step">
-                    <div class="process-number">3</div>
-                    <div class="process-details">
-                        <h4>Local Zero-Trust Verification</h4>
-                        <p>Every microservice verifies signatures in-memory using the Public key with 0 network hops.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="footer">
-            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">06 / 14</div>
-        </div>
-    </div>
+            <div class="components-stack">
+                <div class="box-grid">
+                    <div class="box-item problem-box">
+                        <span class="tag tag-danger">The Naive Approach</span>
+                        <h3>String Equality Checks</h3>
+                        <div class="code-block" style="background: #ffffff;">
+                            if (role === 'ADMIN' || role === 'MANAGER')
+                        </div>
+                        <p style="margin-top: 8px;">Checks become repetitive and verbose. They don't reflect natural hierarchy: that an Admin
+                            inherently has all powers of a Manager.</p>
+                        </div>
+                        <div class="box-item solution-box">
+                            <span class="tag tag-success">The Senior Approach</span>
+                            <h3>Pyramid Numeric Weights</h3>
+                            <div class="code-block" style="background: #ffffff;">
+                                if (user.roleWeight &lt;= RoleWeight.MANAGER)
+                            </div>
+                            <p style="margin-top: 8px;">Lower numbers represent higher privilege. A single inequality threshold cleanly checks
+                                entire tiers of permissions!</p>
+                        </div>
+                        </div>
+                        <div class="senior-tip">
+                            <div class="senior-tip-title">The Golden Question</div>
+                            <div class="senior-tip-body">Should you number roles as `0, 1, 2, 3`? <b>Never.</b> That brings us to the Breathing
+                                Space Rule on the next slide.</div>
+                        </div>
+                        </div>
+                        </div>
+                        <div class="footer">
+                            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                            <div class="slide-num">18 / 25</div>
+                            </div>
+                            </div>
+                        <!-- ========================================== -->
+                        <!-- SLIDE 19: THE BREATHING SPACE RULE         -->
+                        <!-- ========================================== -->
+                        <div class="slide">
+                            <div class="content">
+                                <span class="chapter-title">Step 09 &bull; The 0 - 30 - 70 Law</span>
+                                <h2>The "Breathing Space" Rule</h2>
+                                <p class="intro-text">Why we use numerical weight gaps (0, 30, 70) instead of sequential integers (0, 1, 2, 3)
+                                    in
+                                    real-world systems.</p>
+                                <div class="components-stack">
+                                    <div class="tree-container">
+                                        <div class="tree-node main">
+                                            <div class="node-label">
+                                                <span class="weight-badge">0</span>
+                                                <span>ADMIN</span>
+                                            </div>
+                                            <span class="node-desc">Full System Operations &amp; Billing</span>
+                                            </div>
+                                            <div class="tree-line"></div>
+                                            <div class="tree-node highlight">
+                                            <div class="node-label">
+                                                <span class="weight-badge">15</span>
+                                                <span>SUB_ADMIN</span>
+                                            </div>
+                                            <span class="node-desc">Inserted Later via Breathing Space!</span>
+                                            </div>
+                                            <div class="tree-line"></div>
+                                        <div class="tree-node manager">
+                                            <div class="node-label">
+                                                <span class="weight-badge">30</span>
+                                                <span>MANAGER</span>
+                                            </div>
+                                            <span class="node-desc">Team Management &amp; Approvals</span>
+                                        </div>
+                                        <div class="tree-line"></div>
+                                        <div class="tree-node user-level">
+                                            <div class="node-label">
+                                                <span class="weight-badge">70</span>
+                                                <span>STANDARD USER</span>
+                                            </div>
+                                            <span class="node-desc">Standard Read &amp; Write Access</span>
+                                        </div>
+                                        </div>
+                                        
+                                        <div class="box-item">
+                                        <span class="tag">The Secret</span>
+                                        <h3>Zero Code Refactoring</h3>
+                                        <p>If you used sequential `0, 1, 2`, inserting `SUB_ADMIN` forces rewriting 50 controllers. With numeric
+                                            gaps, `15`
+                                            slips right between `0` and `30` without breaking existing code: <code>roleWeight &lt;= 30</code>
+                                            automatically
+                                            includes `15`!</p>
+                                        </div>
+                                        </div>
+                                        </div>
+                                        <div class="footer">
+                                            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                                <div class="slide-num">19 / 25</div>
+                                </div>
+                                </div>
+                        <!-- ========================================== -->
+                        <!-- SLIDE 20: WHY GLOBAL RBAC BREAKS IN SAAS   -->
+                        <!-- ========================================== -->
+                        <div class="slide">
+                            <div class="content">
+                                <span class="chapter-title">Step 10 &bull; The SaaS Dilemma</span>
+                                <h2>Why Global RBAC Breaks in SaaS</h2>
+                                <p class="intro-text">Storing a single <code>role</code> column on your <code>users</code> table works for
+                                    simple
+                                    monoliths, but explodes in modern B2B SaaS platforms.</p>
+                                
+                                <div class="components-stack">
+                                    <div class="analogy-card">
+                                        <div class="analogy-header">
+                                            <span class="analogy-tag">The SaaS Reality</span>
+                                            <span class="analogy-title">The Multi-Organization Problem</span>
+                                        </div>
+                                        <p class="analogy-text">Consider platforms like Slack, GitHub, or AWS: Saif is the <b>ADMIN</b> of his
+                                            startup's
+                                            GitHub Organization ("AlphaTech"), but is merely an outside <b>CONTRIBUTOR</b> or <b>VIEWER</b> in
+                                            an
+                                            open-source project ("AcmeCorp").</p>
+                                    </div>
 
-    <!-- SLIDE 07: 04. ROLE-BASED ACCESS CONTROL (RBAC) -->
-    <div class="slide">
-        <div class="content">
-            <span class="chapter-title">Step 04 &bull; Authorization</span>
-            <h2>Role-Based Access (RBAC)</h2>
-            <p class="intro-text">Once identity is verified, we must check permissions. RBAC groups permissions into assigned roles
-                (e.g. Admin, Manager, User).</p>
-            
-            <div class="tree-container">
-                <div class="tree-node main">
-                    <span>ADMIN (Weight: 0)</span>
-                    <span style="font-size: 16px; opacity: 0.8; font-weight: 500;">Full System Operations</span>
-                </div>
-                <div class="tree-line"></div>
-                <div class="tree-node highlight">
-                    <span>SUB_ADMIN (Weight: 15)</span>
-                    <span style="font-size: 16px; opacity: 0.9; font-weight: 600;">Inserted via Breathing Space</span>
-                </div>
-                <div class="tree-line"></div>
-                <div class="tree-node">
-                    <span>MANAGER (Weight: 30)</span>
-                    <span style="font-size: 16px; opacity: 0.8; font-weight: 500;">Management Permissions</span>
-                </div>
-                <div class="tree-line"></div>
-                <div class="tree-node">
-                    <span>USER (Weight: 70)</span>
-                    <span style="font-size: 16px; opacity: 0.8; font-weight: 500;">Standard Account Level</span>
-                </div>
-            </div>
-
-            <div class="box-item">
-                <h3>The Breathing Space Rule</h3>
-                <p>Use numerical weight gaps (0, 30, 70) instead of sequential integers (0, 1, 2). This allows inserting new roles (15)
-                    without altering existing threshold code <code>user.roleWeight &lt;= 30</code>.</p>
-            </div>
-        </div>
-        <div class="footer">
-            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">07 / 14</div>
-        </div>
-    </div>
-
-    <!-- SLIDE 08: ❌ WHERE GLOBAL RBAC BREAKS -->
-    <div class="slide">
-        <div class="content">
-            <span class="chapter-title">The SaaS Limitation</span>
-            <h2>Why Global RBAC Fails in SaaS</h2>
-            <p class="intro-text">Storing a single <code>role</code> column on the user table works for simple monoliths, but
-                completely breaks in B2B SaaS platforms.</p>
-            
-            <div class="box-grid">
                 <div class="box-item problem-box">
-                    <span class="tag tag-danger">The Global Role Flaw</span>
+                    <span class="tag tag-danger">The Global Flaw</span>
                     <h3>Global Privilege Leak</h3>
-                    <p>Storing <code>users.role = 'ADMIN'</code> grants global superuser power everywhere. It makes multi-org
-                        tenancy impossible (e.g., Slack, GitHub, AWS).</p>
-                </div>
-                <div class="box-item problem-box">
-                    <span class="tag tag-danger">Real-World SaaS Context</span>
-                    <h3>Multi-Tenant Requirement</h3>
-                    <p>User Saif must be an <b>ADMIN</b> in Organization <i></i>, but only a <b>VIEWER</b> in Organization
-                        <i>Acme Corp</i>.
-                    </p>
+                    <p>If you store <code>user.role = 'ADMIN'</code> globally, Saif becomes an Admin across <i>every company on your entire
+                            platform</i>. Single-tenant roles make multi-tenancy impossible.</p>
+                    </div>
+                    <div class="senior-tip">
+                        <div class="senior-tip-title">Core Rule of Multi-Tenancy</div>
+                        <div class="senior-tip-body">A user has no role in isolation. <b>A user only has a role within the context of a
+                                specific Organization or Workspace.</b></div>
                 </div>
             </div>
         </div>
         <div class="footer">
             <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">08 / 14</div>
+            <div class="slide-num">20 / 25</div>
         </div>
     </div>
 
-    <!-- SLIDE 09: 05. MULTI-TENANT SCOPED AUTH -->
+    <!-- ========================================== -->
+    <!-- SLIDE 21: SCOPED RBAC                      -->
+    <!-- ========================================== -->
     <div class="slide">
         <div class="content">
-            <span class="chapter-title">Step 05 &bull; Tenant Scoping</span>
-            <h2>Multi-Tenant Scoped Auth</h2>
-            <p class="intro-text">To fix global role flaws, authorization logic must be scoped per organization and resource using
-                junction tables.</p>
+            <span class="chapter-title">Step 10 &bull; The SaaS Fix</span>
+            <h2>Scoped RBAC Architecture</h2>
+            <p class="intro-text">To support multi-tenancy, authorization logic must be scoped per tenant context using junction
+                tables.</p>
             
-            <div class="box-grid single-col">
-                <div class="box-item solution-box">
-                    <span class="tag tag-success">Scoped Mapping Architecture</span>
-                    <h3>Junction Table Isolation</h3>
-                    <p>Roles are isolated per context: <code>user_org_roles</code> maps (user_id, org_id, role) and
-                        <code>user_repo_roles</code> maps (user_id, repo_id, role). Org admins automatically inherit cascaded access
-                        across child resources.
-                    </p>
+            <div class="components-stack">
+                <div class="box-grid">
+                    <div class="box-item solution-box">
+                        <span class="tag tag-success">Org Scope</span>
+                        <h3>`user_org_roles`</h3>
+                        <p>Maps <code>(user_id, org_id, role)</code>. Defines high-level company permissions (Owner, Billing Admin,
+                            Member).</p>
+                    </div>
+
+                    <div class="box-item solution-box">
+                        <span class="tag tag-success">Resource Scope</span>
+                        <h3>`user_repo_roles`</h3>
+                        <p>Maps <code>(user_id, repo_id, role)</code>. Enables granular overrides for specific projects or repos.</p>
+                        </div>
+                        </div>
+                        
+                        <div class="box-item neutral">
+                            <span class="tag tag-dark">Permission Cascading</span>
+                            <h3>Hierarchical Inheritance</h3>
+                            <p>Org admins automatically inherit access across all child repositories. External contractors only get added to
+                                specific <code>user_repo_roles</code> rows, isolating sensitive resources.</p>
                 </div>
             </div>
         </div>
         <div class="footer">
             <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">09 / 14</div>
+            <div class="slide-num">21 / 25</div>
         </div>
     </div>
 
-    <!-- SLIDE 10: ❌ WHERE SCOPED RBAC BREAKS -->
+    <!-- ========================================== -->
+    <!-- SLIDE 22: DEEP GRAPH CRISIS                -->
+    <!-- ========================================== -->
     <div class="slide">
         <div class="content">
-            <span class="chapter-title">The Graph Complexity</span>
-            <h2>Why Scoped RBAC Fails in Deep Graph Apps</h2>
-            <p class="intro-text">As platforms add nested sharing (Google Drive folders, GitHub teams), multi-table SQL joins become
-                impossible to maintain.</p>
+            <span class="chapter-title">Step 11 &bull; The Graph Crisis</span>
+            <h2>When Scoped RBAC Collapses</h2>
+            <p class="intro-text">Scoped tables solve simple Org roles. But what happens when products add Google Drive nested
+                folders, Figma team sharing, or GitHub team hierarchies?</p>
             
-            <div class="box-grid">
-                <div class="box-item problem-box">
-                    <span class="tag tag-danger">SQL Join Explosion</span>
-                    <h3>Query Performance Collapse</h3>
-                    <p>Evaluating access across nested folders, inherited teams, and public link shares requires 10+ table joins per
-                        request, destroying API response times.</p>
+            <div class="components-stack">
+                <div class="analogy-card">
+                    <div class="analogy-header">
+                        <span class="analogy-tag">Mental Model</span>
+                        <span class="analogy-title">The Russian Nesting Doll Problem</span>
+                    </div>
+                    <p class="analogy-text">In a modern product, access isn't flat: User &rarr; Member of Backend Team &rarr; Team
+                        has access to Project &rarr; Project contains Folder &rarr; Folder contains File. Relational SQL was never
+                        designed to traverse deep graphs in real time.</p>
                 </div>
-                <div class="box-item problem-box">
-                    <span class="tag tag-danger">Maintenance Nightmare</span>
-                    <h3>Hardcoded Logic Sprawl</h3>
-                    <p>Permission inheritance rules get duplicated across dozens of SQL queries, creating security holes and auditing
-                        nightmares.</p>
+            
+                <div class="box-grid">
+                    <div class="box-item problem-box">
+                        <span class="tag tag-danger">Crisis 01</span>
+                        <h3>SQL JOIN Explosion</h3>
+                        <p>Checking permissions requires <b>8 to 12 recursive table joins</b> on every click. Database CPU spikes to 100%.</p>
+                        </div>
+
+                    <div class="box-item problem-box">
+                        <span class="tag tag-danger">Crisis 02</span>
+                        <h3>Sprawling Logic</h3>
+                        <p>Inheritance rules get hardcoded across dozens of SQL queries, creating audit and security nightmares.</p>
+                        </div>
+                        </div>
+                        </div>
+                        </div>
+                        <div class="footer">
+                            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                            <div class="slide-num">22 / 25</div>
+                            </div>
+                            </div>
+                        <!-- ========================================== -->
+                        <!-- SLIDE 23: ReBAC & GOOGLE ZANZIBAR          -->
+                        <!-- ========================================== -->
+                        <div class="slide">
+                            <div class="content">
+                                <span class="chapter-title">Step 12 &bull; Graph Authorization</span>
+                                <h2>ReBAC &amp; Google Zanzibar</h2>
+                                <p class="intro-text">Google solved nested sharing with <b>Zanzibar</b> (powers Docs, Drive, YouTube, Cloud
+                                    IAM).
+                                    Permissions are modeled as <b>graph reachability</b>.</p>
+                                <div class="components-stack">
+                                    <div class="box-item neutral">
+                                        <span class="tag tag-dark">The Universal Formula</span>
+                                        <h3>Relation Tuples</h3>
+                                        <p>Instead of 50 junction tables, all permissions across all products are modeled as universal 3-part
+                                            graph
+                                            tuples:</p>
+                                        <div class="tuple-badge">&lt;object&gt;#&lt;relation&gt;@&lt;user / subject&gt;</div>
+                                    </div>
+                                
+                                    <div class="box-grid">
+                                        <div class="box-item">
+                                            <span class="tag">Org Membership</span>
+                                            <div class="code-block">org:acme#member@user:saif</div>
+                                            <p style="margin-top: 6px;">Saif is directly a member of the Acme organization.</p>
+                                            </div>
+                        
+                                        <div class="box-item">
+                                            <span class="tag">Inherited Parent</span>
+                                            <div class="code-block">doc:roadmap#parent@org:acme</div>
+                                            <p style="margin-top: 6px;">The roadmap document inherits permissions from Acme.</p>
+                                            </div>
+                                            </div>
+                                            
+                                            <div class="senior-tip">
+                                                <div class="senior-tip-title">Zanzibar Core Insight</div>
+                                                <div class="senior-tip-body">Checking access is simply asking: <i>"Is there a path from User X to
+                                                        Resource Y in the
+                                                        graph?"</i> Graph traversal completely replaces messy SQL joins.</div>
                 </div>
             </div>
         </div>
         <div class="footer">
             <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">10 / 14</div>
+            <div class="slide-num">23 / 25</div>
         </div>
     </div>
 
-    <!-- SLIDE 11: 06. RELATIONSHIP-BASED ACCESS CONTROL (ReBAC) -->
+    <!-- ========================================== -->
+    <!-- SLIDE 24: ABAC & DYNAMIC CONTEXT           -->
+    <!-- ========================================== -->
     <div class="slide">
         <div class="content">
-            <span class="chapter-title">Step 06 &bull; Graph Permissions</span>
-            <h2>ReBAC &amp; Google Zanzibar</h2>
-            <p class="intro-text">Google Zanzibar solves nested sharing by modeling permissions as graph reachability using uniform
-                <b>Relation Tuples</b>.
-            </p>
+            <span class="chapter-title">Step 13 &bull; Dynamic Context</span>
+            <h2>Where ReBAC Fails: Enter ABAC</h2>
+            <p class="intro-text">ReBAC graphs excel at static relationships ("Is Saif a member of Org X?"). But what happens when
+                access depends on dynamic real-time conditions?</p>
             
-            <div class="box-item" style="margin-bottom: 24px;">
-                <span class="tag tag-success">Universal Relation Tuple Format</span>
-                <span class="tuple-badge">&lt;object&gt;#&lt;relation&gt;@&lt;user / subject&gt;</span>
-            </div>
-
-            <div class="box-grid">
-                <div class="box-item">
-                    <span class="tag">Org Member Tuple</span>
-                    <p>Expresses user org relation:</p>
-                    <div class="code-block">organization:myorg#member@user:saif</div>
+            <div class="components-stack">
+                <div class="analogy-card" style="border-left-color: var(--danger); background: #fffcfc;">
+                    <div class="analogy-header">
+                        <span class="analogy-tag" style="background: var(--danger);">The Contextual Challenge</span>
+                        <span class="analogy-title" style="color: var(--danger);">When Graphs Cannot Express Context</span>
+                    </div>
+                    <p class="analogy-text">"Allow wire transfers ONLY IF user belongs to Finance, during business hours (09:00 -
+                        17:00), connected via Corporate VPN, with clearance &gt;= 3, and transfer amount &lt; $50,000."</p>
                 </div>
-                <div class="box-item">
-                    <span class="tag">Inherited Parent Tuple</span>
-                    <p>Expresses object inheritance:</p>
-                    <div class="code-block">repo:genai#parent@organization:myorg</div>
-                </div>
-            </div>
-        </div>
-        <div class="footer">
-            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">11 / 14</div>
-        </div>
-    </div>
-
-    <!-- SLIDE 12: ❌ WHERE REBAC ALONE BREAKS -->
-    <div class="slide">
-        <div class="content">
-            <span class="chapter-title">The Contextual Limit</span>
-            <h2>Why Static Graphs Aren't Enough</h2>
-            <p class="intro-text">ReBAC graphs excel at relationship checks ("Is Saif a member of Org X?"), but fail when access
-                depends on dynamic real-time context.</p>
             
-            <div class="box-grid">
-                <div class="box-item problem-box">
-                    <span class="tag tag-danger">Static Relation Trap</span>
-                    <h3>Missing Dynamic Signals</h3>
-                    <p>ReBAC cannot natively check: <i>"Is access allowed ONLY during business hours (09:00-17:00), from a Corporate
-                            VPN, in region EU-West?"</i></p>
-                </div>
-                <div class="box-item problem-box">
-                    <span class="tag tag-danger">Attribute Explosion</span>
-                    <h3>Graph State Pollution</h3>
-                    <p>Trying to encode dynamic IP addresses, time slots, or document clearance levels into static graph tuples explodes
-                        graph storage.</p>
+                <div class="box-grid">
+                    <div class="box-item">
+                        <span class="tag tag-info">The 4 Pillars of ABAC</span>
+                        <h3>Subject, Resource, Action, Environment</h3>
+                        <p>Evaluates user clearance, document status, action type, and real-time context (time of day, VPN, geolocation).
+                        </p>
+                    </div>
+<div class="box-item solution-box">
+    <span class="tag tag-success">Policy Engines</span>
+    <h3>Decoupled Rules with OPA</h3>
+    <p>Rules are written declaratively in <b>Rego (Open Policy Agent)</b>. The API sends JSON attributes; OPA returns
+        Allow/Deny.</p>
+</div>
+</div>
+
+<div class="senior-tip">
+    <div class="senior-tip-title">Senior Dev Summary</div>
+    <div class="senior-tip-body">Start simple with sessions/JWTs. Scale to scoped RBAC for SaaS. Transition to ReBAC
+        (Zanzibar) for nested sharing, and adopt ABAC for compliance and dynamic context!</div>
                 </div>
             </div>
         </div>
         <div class="footer">
             <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">12 / 14</div>
-        </div>
-    </div>
-
-    <!-- SLIDE 13: 07. ATTRIBUTE-BASED ACCESS CONTROL (ABAC) -->
-    <div class="slide">
-        <div class="content">
-            <span class="chapter-title">Step 07 &bull; Dynamic Context</span>
-            <h2>Attribute-Based Access (ABAC)</h2>
-            <p class="intro-text">ABAC evaluates real-time attributes across Subject, Resource, Action, and Environment at request
-                execution time using Policy Engines (OPA).</p>
+            <div class="slide-num">24 / 25</div>
+            </div>
+            </div>
+            <!-- ========================================== -->
+            <!-- SLIDE 25: CLOSING & OPEN TO CONNECT        -->
+            <!-- ========================================== -->
+            <div class="slide hero-slide">
+                <div class="content">
+                    <div class="hero-body" style="padding: 10px 0;">
+                        <span class="chapter-title">Closing Notes &bull; Let's Connect</span>
+                        <h1 style="font-size: 60px; margin-bottom: 14px;">Thank You for Reading!</h1>
+                        <p class="hero-subtitle" style="font-size: 21.5px; max-width: 860px; margin-bottom: 22px;">
+                            Authentication and authorization are foundational to modern software. Hope this visual walkthrough gave
+                            you a clear, practical mental model for your next architectural decision.
+                        </p>
+                    
+                        <!-- Natural Closing Statement -->
+                        <div class="box-item solution-box" style="text-align: left; margin-bottom: 18px; width: 100%; max-width: 880px;">
+                            <span class="tag tag-success">Let's Connect</span>
+                            <h3 style="font-size: 21px; margin-bottom: 6px;">Always Open to Great Conversations</h3>
+                            <p style="font-size: 17.5px; line-height: 1.48;">
+                                I enjoy diving deep into web systems, application architecture, and software engineering. Whether you're
+                                building ambitious products, discussing tech, or simply want to connect ... feel free to reach out!
+                            </p>
+                        </div>
             
-            <div class="box-grid">
-                <div class="box-item solution-box">
-                    <span class="tag tag-success">Pillar 1: Subject &amp; Resource</span>
-                    <h3>Identity &amp; Target</h3>
-                    <p>User Department == Doc Department AND User Clearance Level &gt;= Doc Classification.</p>
-                </div>
-                <div class="box-item solution-box">
-                    <span class="tag tag-success">Pillar 2: Action &amp; Environment</span>
-                    <h3>Context &amp; Constraints</h3>
-                    <p>Action == 'EDIT' AND Request Time &lt;= 17:00 AND Connection is Corporate VPN.</p>
-                </div>
-            </div>
-        </div>
-        <div class="footer">
-            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">13 / 14</div>
-        </div>
+                        <!-- Contact Matrix with Clean SVG Icons -->
+                        <div class="box-grid" style="max-width: 880px; text-align: left; margin-bottom: 18px;">
+                            <div class="box-item">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#0077b5">
+                                        <path
+                                            d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+                                    </svg>
+                                    <h4 style="margin: 0; font-size: 18px;">LinkedIn</h4>
+                                </div>
+                                <div class="code-block" style="font-size: 15px; background: #fff;">linkedin.com/in/mohammedsaif001/</div>
+                                </div>
+<div class="box-item">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#d93025">
+            <path
+                d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
+        </svg>
+        <h4 style="margin: 0; font-size: 18px;">Direct Email</h4>
+                                </div>
+                                <div class="code-block" style="font-size: 15px; background: #fff;">imohdsaif.ai@gmail.com</div>
+                            </div>
+<div class="box-item">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#25d366">
+            <path
+                d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+        </svg>
+        <h4 style="margin: 0; font-size: 18px;">Call / WhatsApp</h4>
     </div>
+                                <div class="code-block" style="font-size: 15px; background: #fff;">+91 96321 37360</div>
+                            </div>
 
-    <!-- SLIDE 14: CLOSING / SENIOR DEV NOTE SLIDE -->
-    <div class="slide hero-slide">
-        <div class="content">
-            <div class="hero-body">
-                <span class="chapter-title">Architectural Takeaway</span>
-                <h1>Auth Goes Far Deeper<br>Than You Think</h1>
-                
-                <div class="senior-note-box">
-                    <h3>Key Takeaway</h3>
-                    <p>"Authentication and authorization go far deeper than wrapping routes in JWT middleware or hardcoding <code>if (user.role === 'ADMIN')</code>. True production security touches distributed state, key distribution, graph reachability, and dynamic contextual policies. Choose your paradigm before your data model locks you in."</p>
-                </div>
+                            <div class="box-item">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#e65100">
+                                        <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
+                                    </svg>
+                                    <h4 style="margin: 0; font-size: 18px;">Core Focus</h4>
+                                </div>
+                                <div class="code-block" style="font-size: 14.5px; background: #fff;">Web Systems &bull; Application Architecture
+                                </div>
+                            </div>
+                            </div>
 
-                <div class="cta-btn">Save &amp; Share Carousel</div>
+                        <!-- Share & Repost Callout -->
+                        <div class="senior-tip" style="width: 100%; max-width: 880px; text-align: left;">
+                            <div class="senior-tip-title">Found This Helpful?</div>
+                            <div class="senior-tip-body"><b>Like, Save &amp; Repost</b> to share these system design insights with fellow
+                                engineers!</div>
+                        </div>
 
-                <div class="author-signature">
-                    <div class="author-name">Mohammed Saif</div>
-                    <div class="author-title">Senior Software Engineer</div>
-                    <div class="author-email">mhammed001saif@gmail.com</div>
-                </div>
-            </div>
-        </div>
-        <div class="footer">
-            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
-            <div class="slide-num">14 / 14</div>
-        </div>
-    </div>
+                        <!-- Signature Footer -->
+                        <div class="author-signature" style="margin-top: 14px; padding-top: 12px;">
+                            <div class="author-name">Mohammed Saif</div>
+                            <div class="author-title">Senior Software Engineer</div>
+                        </div>
+                        </div>
+                        </div>
+                        <div class="footer">
+                            <div class="branding"><span>/</span> Mohammed Saif | linkedin.com/in/mohammedsaif001/</div>
+                    <div class="slide-num">25 / 25</div>
+                    </div>
+                    </div>
 
 </body>
 </html>
