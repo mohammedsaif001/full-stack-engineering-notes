@@ -10,9 +10,9 @@ export const connection = {
 };
 
 export const indexingQueue = new Queue(INDEXING_QUEUE, {
-    connection: config.redis
-})
-export const queryQueue = new Queue(QUERY_QUEUE, { connection: config.redis })
+  connection,
+});
+export const queryQueue = new Queue(QUERY_QUEUE, { connection });
 
 /**
  * Enqueue a job telling the worker to index an uploaded PDF.

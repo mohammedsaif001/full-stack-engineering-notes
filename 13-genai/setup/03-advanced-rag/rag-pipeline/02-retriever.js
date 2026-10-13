@@ -1,13 +1,13 @@
-import { config } from "../config";
-import { qdrant } from "../config/db";
-import { embedText } from "../openai";
+import { config } from "../config/index.js";
+import { qdrant } from "../config/db.js";
+import { embedText, openai } from "../openai/index.js";
 
 /**
  * RAG query pipeline: embed the query, search Qdrant for relevant chunks,
  * then ask the chat model to answer using only that retrieved context.
  * @param {string} query
  */
-export async function answerQuery() {
+export async function answerQuery(query) {
   const collection = config.qdrant.collection;
 
   // 1. Embed the query.

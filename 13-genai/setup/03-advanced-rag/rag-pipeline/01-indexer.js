@@ -52,7 +52,8 @@ export function chunkText(
  * read -> chunk -> embed -> upsert into Qdrant.
  */
 export async function indexPDF({ filePath, originalName }) {
-  const collection = await ensureCollection();
+  await ensureCollection();
+  const collection = config.qdrant.collection;
   const text = await readPdfText(filePath);
   const chunks = chunkText(text);
 

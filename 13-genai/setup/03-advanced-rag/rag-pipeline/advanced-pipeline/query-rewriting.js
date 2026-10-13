@@ -8,8 +8,8 @@
  * @returns {Promise<{ stepBack: string, rewritten: string, subQueries: string[] }>}
  */
 
-import { openai } from "../../openai";
-import { config } from "../../config";
+import { openai } from "../../openai/index.js";
+import { config } from "../../config/index.js";
 
 export async function queryRewriting(query) {
   const completion = await openai.chat.completions.create({

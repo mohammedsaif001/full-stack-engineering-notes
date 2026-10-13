@@ -1,5 +1,5 @@
 import { config } from "../../config/index.js";
-import { openai } from "../../openai.js";
+import { openai } from "../../openai/index.js";
 
 /**
  * HyDE (Hypothetical Document Embeddings): ask the model to write a short,

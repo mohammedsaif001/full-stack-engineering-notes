@@ -26,4 +26,6 @@ export async function ensureCollection() {
       if (stillMissing) throw err;
     }
   }
+
+  return name;
 }

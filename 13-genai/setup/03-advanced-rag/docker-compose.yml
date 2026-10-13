@@ -3,7 +3,7 @@ services:
     image: qdrant/qdrant:latest
     container_name: advanced-rag-qdrant
     restart: unless-stopped
-     ports:
+    ports:
       - "6333:6333" # REST API
     volumes:
       - qdrant_data:/qdrant/storage
