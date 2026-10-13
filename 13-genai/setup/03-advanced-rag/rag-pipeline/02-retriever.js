@@ -25,8 +25,10 @@ export async function answerQuery(query) {
   // 2. Build context and generate a grounded answer.
   const context = chunks
     .map(
-      (s, i) =>
-        `[Chunk ${i + 1}] (source: ${s.source}, RRF score: ${s.rrfScore.toFixed(4)}, matched by: ${s.matchedBy.join(", ")})\n${s.text}`
+      (s, i) => {
+        const pageInfo = s.pageNumber ? `, page: ${s.pageNumber}` : "";
+        return `[Chunk ${i + 1}] (source: ${s.source}${pageInfo}, RRF score: ${s.rrfScore.toFixed(4)}, matched by: ${s.matchedBy.join(", ")})\n${s.text}`;
+      }
     )
     .join("\n\n");
 
@@ -38,6 +40,7 @@ export async function answerQuery(query) {
         role: "system",
         content:
           "You are a helpful assistant. Answer the user's question using ONLY the provided context. " +
+          "Always cite the source document and page number when available. " +
           "If the answer is not contained in the context, say you don't know. Be concise.",
       },
       {

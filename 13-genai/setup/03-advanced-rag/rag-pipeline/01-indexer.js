@@ -1,84 +1,63 @@
-import fs from "node:fs/promises";
 import crypto from "node:crypto";
-import { PDFParse } from "pdf-parse";
+import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { config } from "../config/index.js";
 import { qdrant, ensureCollection } from "../config/db.js";
 import { embedTexts } from "../openai/index.js";
 
-/** Read a PDF from disk and return its raw text. */
-async function readPdfText(filePath) {
-  const buffer = await fs.readFile(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const result = await parser.getText();
-  await parser.destroy();
-  return result.text;
-}
 /**
- * Split text into overlapping chunks (~chunkSize chars, chunkOverlap overlap),
- * breaking on whitespace boundaries where possible.
- */
-export function chunkText(
-  text,
-  chunkSize = config.chunking.chunkSize,
-  overlap = config.chunking.chunkOverlap,
-) {
-  const clean = text.replace(/\s+/g, " ").trim();
-  if (!clean) return [];
-
-  const chunks = [];
-  let start = 0;
-
-  while (start < clean.length) {
-    let end = Math.min(start + chunkSize, clean.length);
-
-    // Try to end on a space so we don't cut words in half.
-    if (end < clean.length) {
-      const lastSpace = clean.lastIndexOf(" ", end);
-      if (lastSpace > start) end = lastSpace;
-    }
-
-    const chunk = clean.slice(start, end).trim();
-    if (chunk) chunks.push(chunk);
-
-    if (end >= clean.length) break;
-    start = end - overlap; // step forward with overlap
-    if (start < 0) start = 0;
-  }
-
-  return chunks;
-}
-
-/**
- * Full indexing pipeline for a single uploaded PDF:
- * read -> chunk -> embed -> upsert into Qdrant.
+ * Full indexing pipeline for an uploaded PDF using LangChain loaders & splitters:
+ * 1. PDFLoader: parses PDF and extracts per-page text & metadata.
+ * 2. RecursiveCharacterTextSplitter: splits text cleanly on paragraph/sentence boundaries.
+ * 3. OpenAI batch embeddings.
+ * 4. Qdrant vector upsert with rich metadata (page numbers, source, etc.).
  */
 export async function indexPDF({ filePath, originalName }) {
   await ensureCollection();
   const collection = config.qdrant.collection;
-  const text = await readPdfText(filePath);
-  const chunks = chunkText(text);
 
-  if (chunks.length === 0) {
+  // 1. Load PDF pages
+  const loader = new PDFLoader(filePath);
+  const rawDocs = await loader.load();
+
+  if (rawDocs.length === 0) {
     return { chunks: 0, message: "No extractable text found in PDF" };
   }
 
-  const vectors = await embedTexts(chunks);
+  // 2. Intelligent Recursive Text Splitting
+  const splitter = new RecursiveCharacterTextSplitter({
+    chunkSize: config.chunking.chunkSize,
+    chunkOverlap: config.chunking.chunkOverlap,
+  });
+  const splitDocs = await splitter.splitDocuments(rawDocs);
 
-  const points = chunks.map((chunk, i) => ({
+  if (splitDocs.length === 0) {
+    return { chunks: 0, message: "No chunks generated from document" };
+  }
+
+  const chunkTexts = splitDocs.map((doc) => doc.pageContent);
+
+  // 3. Batch generate embeddings
+  const vectors = await embedTexts(chunkTexts);
+
+  // 4. Construct Qdrant points with page number metadata
+  const points = splitDocs.map((doc, i) => ({
     id: crypto.randomUUID(),
     vector: vectors[i],
     payload: {
-      text: chunk,
+      text: doc.pageContent,
       source: originalName,
       filePath,
+      pageNumber: doc.metadata?.loc?.pageNumber ?? null,
       chunkIndex: i,
     },
   }));
 
+  // 5. Upsert to Qdrant
   await qdrant.upsert(collection, {
     points,
     wait: true,
   });
 
-  return { chunks: chunks.length, collection };
+  return { chunks: points.length, collection };
 }

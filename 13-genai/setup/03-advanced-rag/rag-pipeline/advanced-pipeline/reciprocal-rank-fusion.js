@@ -37,6 +37,7 @@ export function reciprocalRankFusion(rankedLists, k = config.retrieval.rrfK) {
           id: h.id,
           text: h.payload?.text ?? "",
           source: h.payload?.source ?? null,
+          pageNumber: h.payload?.pageNumber ?? null,
           chunkIndex: h.payload?.chunkIndex ?? null,
           bestScore: h.score, // best raw vector similarity, for reference
           rrfScore: contribution,
