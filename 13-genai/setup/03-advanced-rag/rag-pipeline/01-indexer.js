@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
-// Import the lib entry directly to avoid pdf-parse's debug-mode file read on import.
-import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import { PDFParse } from "pdf-parse";
 import { config } from "../config/index.js";
 import { qdrant, ensureCollection } from "../config/db.js";
 import { embedTexts } from "../openai/index.js";
@@ -9,8 +8,10 @@ import { embedTexts } from "../openai/index.js";
 /** Read a PDF from disk and return its raw text. */
 async function readPdfText(filePath) {
   const buffer = await fs.readFile(filePath);
-  const data = await pdfParse(buffer);
-  return data.text;
+  const parser = new PDFParse({ data: buffer });
+  const result = await parser.getText();
+  await parser.destroy();
+  return result.text;
 }
 /**
  * Split text into overlapping chunks (~chunkSize chars, chunkOverlap overlap),

@@ -1,43 +1,33 @@
 import { config } from "../config/index.js";
-import { qdrant } from "../config/db.js";
-import { embedText, openai } from "../openai/index.js";
+import { openai } from "../openai/index.js";
+import { retrieveChunks } from "./advanced-pipeline/index.js";
 
 /**
- * RAG query pipeline: embed the query, search Qdrant for relevant chunks,
- * then ask the chat model to answer using only that retrieved context.
+ * Advanced RAG query pipeline:
+ * 1. Expand query (rewriting, step-back prompting, sub-queries, HyDE)
+ * 2. Multi-query vector search & fusion via Reciprocal Rank Fusion (RRF)
+ * 3. Generate grounded answer using top fused context chunks
  * @param {string} query
  */
 export async function answerQuery(query) {
-  const collection = config.qdrant.collection;
+  // 1. Multi-query retrieval with Reciprocal Rank Fusion
+  const { queries, chunks } = await retrieveChunks(query);
 
-  // 1. Embed the query.
-  const vector = await embedText(query);
-
-  // 2. Retrieve the most similar chunks from Qdrant.
-  const hits = await qdrant.search(collection, {
-    vector,
-    limit: config.retrieval.topK,
-    with_payload: true,
-  });
-
-  const sources = hits.map((h) => ({
-    text: h.payload?.text ?? "",
-    source: h.payload?.source ?? null,
-    chunkIndex: h.payload?.chunkIndex ?? null,
-    score: h.score,
-  }));
-
-  if (sources.length === 0) {
+  if (!chunks || chunks.length === 0) {
     return {
       query,
       answer: "I couldn't find anything relevant in the indexed documents.",
       sources: [],
+      queries,
     };
   }
 
-  // 3. Build context and generate a grounded answer.
-  const context = sources
-    .map((s, i) => `[Chunk ${i + 1}] (source: ${s.source})\n${s.text}`)
+  // 2. Build context and generate a grounded answer.
+  const context = chunks
+    .map(
+      (s, i) =>
+        `[Chunk ${i + 1}] (source: ${s.source}, RRF score: ${s.rrfScore.toFixed(4)}, matched by: ${s.matchedBy.join(", ")})\n${s.text}`
+    )
     .join("\n\n");
 
   const completion = await openai.chat.completions.create({
@@ -59,5 +49,6 @@ export async function answerQuery(query) {
 
   const answer = completion.choices[0]?.message?.content?.trim() ?? "";
 
-  return { query, answer, sources };
+  return { query, answer, sources: chunks, queries };
 }
+

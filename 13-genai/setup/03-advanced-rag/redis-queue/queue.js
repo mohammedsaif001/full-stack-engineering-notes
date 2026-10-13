@@ -18,7 +18,7 @@ export const queryQueue = new Queue(QUERY_QUEUE, { connection });
  * Enqueue a job telling the worker to index an uploaded PDF.
  * @param {{ filePath: string, originalName: string, mimeType: string, size: number }} payload
  */
-export async function enqueueIndexJob(payload){
+export async function enqueueIndexingJob(payload){
     return await indexingQueue.add('index-file', payload, {
         attempts: 3,
         backoff: {
@@ -29,6 +29,7 @@ export async function enqueueIndexJob(payload){
         removeOnFail:500
     });
 }
+export const enqueueIndexJob = enqueueIndexingJob;
 
 /**
  * Enqueue a query job. Completed/failed jobs are kept for a while so the

@@ -1,3 +1,4 @@
+import { config } from "../../config/index.js";
 import { embedTexts } from "../../openai/index.js";
 import { hydeDocument } from "./hyDe.js";
 import { queryRewriting } from "./query-rewriting.js";
