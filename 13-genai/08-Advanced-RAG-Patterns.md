@@ -41,7 +41,81 @@ In production, this naive pipeline breaks in **6 disastrous ways**:
 
 ## 📐 2. The Master Architecture: Rebuilding the Complete Production Diagram
 
-Here is the full end-to-end production architecture connecting all the whiteboard elements:
+Here is the full interactive flowchart showing how every stage connects:
+
+```mermaid
+flowchart TD
+    %% Offline Pipeline
+    subgraph Offline["🏭 Offline Async Ingestion Pipeline"]
+        RawDocs["📄 Raw Documents<br/>(PDF, XML, VTT, Audio)"] --> Queue["⚙️ Message Queue<br/>(BullMQ / Kafka / RabbitMQ)"]
+        Queue --> Worker["👷 Ingestion Worker<br/>(Chunking & Embedding)"]
+        Worker --> VectorDB
+    end
+
+    %% Online User Query Flow
+    User(["👤 User Prompt<br/>(Questions, Typos, Sensitive Info)"]) --> InputGuard["🛡️ Input Guardrails<br/>• PII Redaction ([REDACTED])<br/>• Prompt Injection Check<br/>• Policy Filtering"]
+    
+    InputGuard --> QueryTrans["🧠 Query Translation (Mini Model)"]
+    
+    subgraph QueryTranslation["🔄 Query Translation & Expansion"]
+        QueryTrans --> Rewrite["✏️ Query Rewriting<br/>(Remove pronouns & typos)"]
+        QueryTrans --> StepBack["🔭 Step-Back Prompting<br/>(High-level principle)"]
+        QueryTrans --> Decomp["🧩 Decomposition<br/>(Sub-questions Q1, Q2)"]
+        QueryTrans --> HyDE["💡 HyDE<br/>(Hypothetical Answer Embedding)"]
+    end
+
+    Rewrite & StepBack & Decomp & HyDE --> Router{"🚦 Intelligent Query Router"}
+
+    subgraph DataStores["🗄️ Enterprise Datastores"]
+        SQL[("🗃️ auth-db (PostgreSQL)<br/>Text-to-SQL Analytics")]
+        VectorDB[("🎯 Vector Store (Qdrant)<br/>Dense + BM25 Sparse")]
+        S3[("📦 S3 Object Store<br/>Raw Docs & Audio Replays")]
+    end
+
+    Router -->|"Structured / Analytics"| SQL
+    Router -->|"Semantic / Unstructured"| VectorDB
+    Router -->|"Raw Files / Media"| S3
+
+    VectorDB -->|"Dense + BM25"| CandidatePool["📚 Candidate Pool<br/>(~120 Chunks via Parent-Child)"]
+    
+    CandidatePool --> Reranker["⚖️ Cross-Encoder Re-ranker<br/>(Deep Attention Scoring)"]
+    
+    Reranker --> TopK["🎯 Top-K Chunks<br/>(Top 5 Surgical Passages)"]
+    
+    TopK --> LLM["🤖 Foundation LLM (GPT-4o)<br/>Grounded Answer Synthesis"]
+
+    LLM --> Stream["⚡ Token Streaming<br/>(SSE / WebSockets to User)"]
+    LLM --> OutGuard["🛡️ Output Guardrails<br/>Scan for Leaked Secrets & PII"]
+    
+    OutGuard --> FinalUser(["🎉 Verified Response to User"])
+
+    %% Self-Correction / CRAG Loop
+    LLM --> Evaluator["🔍 CRAG Mini Evaluator<br/>(Confidence Score 0-10)"]
+    
+    Evaluator -->|"Score >= 6 (Passed)"| FinalUser
+    Evaluator -->|"Score < 6 (Failed)"| CircuitBreaker{"🔁 Retry Count < 3?"}
+    
+    CircuitBreaker -->|"Yes (Retry)"| KeywordExtract["🔑 Extract New Keywords<br/>Log: Issue ➔ Action ➔ Score"]
+    KeywordExtract --> Router
+    
+    CircuitBreaker -->|"No (Exhausted)"| Fallback["⚠️ Graceful Fallback<br/>(Decline / Web Search)"]
+    Fallback --> FinalUser
+
+    %% Styling
+    classDef security fill:#ffefef,stroke:#ff5c5c,stroke-width:2px;
+    classDef router fill:#fff8db,stroke:#f59e0b,stroke-width:2px;
+    classDef store fill:#eff6ff,stroke:#3b82f6,stroke-width:2px;
+    classDef ai fill:#f3e8ff,stroke:#a855f7,stroke-width:2px;
+    classDef queue fill:#f0fdf4,stroke:#22c55e,stroke-width:2px;
+
+    class InputGuard,OutGuard security;
+    class Router,CircuitBreaker router;
+    class SQL,VectorDB,S3 store;
+    class LLM,Evaluator,QueryTrans ai;
+    class Queue,Worker queue;
+```
+
+### Detailed ASCII Architecture Map
 
 ```
 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
