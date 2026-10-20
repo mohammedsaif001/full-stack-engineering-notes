@@ -7,16 +7,23 @@
 
 ---
 
-## 🧭 1. Why Is the Agent SDK Under `13-genai`?
+## 🧭 1. What is an Agent SDK and Why Does It Exist?
 
-In this curriculum, the **`13-genai`** folder outlines the complete engineering journey of building with Large Language Models:
-- **Foundations (`00`–`02`)**: Tokens, Attention, Vector Embeddings, Zero-Shot, Few-Shot, and Chain-of-Thought (CoT) prompting.
-- **Loops & Security (`03`–`05`)**: Loop Engineering, Harness Engineering, Structured Outputs (Zod), and Tri-Layer Guardrails.
-- **Storage, Memory & Orchestration (`06`–`13`)**: Vector DBs, RAG, Memory architectures, and Durable Event Workflows (Inngest).
+At its core, a Large Language Model (LLM) is simply a next-token prediction engine. By itself, a raw model cannot:
+- Execute external tools, query databases, or call APIs.
+- Self-correct syntax or logic errors through iterative trial and error.
+- Enforce security policies to prevent prompt injection or credential leakage.
+- Delegate sub-tasks to specialized peer agents.
 
-An **Agent SDK** belongs in this module because **an Agent is not a separate or magical model**. An Agent is software engineering wrapped *around* an LLM:
+An **Agent SDK** is the software framework and runtime container that transforms a stateless foundation model into an autonomous, production-grade agent:
 
 $$\textbf{Agent} = \textbf{Foundation LLM} + \textbf{Tools} + \textbf{Harness (Reasoning Loop + Guardrails + Memory)}$$
+
+It accomplishes this by providing:
+1. **The Autonomous Harness**: An iterative reasoning loop (`while (!done)`) that drives step-by-step problem deconstruction, tool dispatch, error handling, and termination conditions.
+2. **Type-Safe Tool System**: Schemas (via Zod or JSON Schema) that define parameters, format tool documentation, and validate execution results.
+3. **Bidirectional Guardrails**: Multi-stage security interceptors that sanitize user inputs, block destructive system operations, and redact leaked secrets from responses.
+4. **Multi-Agent Orchestration**: Handoff protocols allowing specialist agents to transfer state, conversation history, and execution context seamlessly.
 
 ---
 
