@@ -1,12 +1,7 @@
 # 16 — Claude Skills Deep Dive: Packaging, Execution Sandboxes & The Battle: Skills vs. MCP
 
-> **Cohort Series**: Generative AI Notes (`13-genai`)  
 > **Topic**: What are Agent / Claude Skills? The Anatomy of a Skill Package (`SKILL.md` + `scripts/` + `prompts/`), The Package Manager Paradigm (`npx skills add`), Sandboxed Execution vs. Remote Servers, Distribution (`skills.sh`, Claude Marketplace, GitHub), and The Architectural Battle: Why Skills Fix MCP's Fatal Flaws.  
-> **Core Visual**: "Skills Wrap MCP" — The Onion Architecture (From Raw Protocol to Packaged Intelligence).  
-> **Lecturer Reference**: Piyush Garg Cohort Lecture Blackboard (Smart Fan, Claude Fan, Package Distribution, Skills vs. MCP).  
-> **Related Notes**:  
-> - [`14-Agent-SDK-Architecture-Harness-MCP-And-Guardrails.md`](file:///c:/Users/mohammed-saif/Desktop/cohort/13-genai/14-Agent-SDK-Architecture-Harness-MCP-And-Guardrails.md)  
-> - [`15-Model-Context-Protocol-MCP-Architecture-Transports-And-Gateways.md`](file:///c:/Users/mohammed-saif/Desktop/cohort/13-genai/15-Model-Context-Protocol-MCP-Architecture-Transports-And-Gateways.md)
+> **Core Architecture**: "Skills Wrap MCP" — The Onion Architecture (From Raw Wire Protocol to Packaged Intelligence).  
 
 ---
 
@@ -34,10 +29,10 @@ An **Agent Skill** (pioneered by Anthropic's Claude, and adopted across Cursor, 
 
 ## 📦 2. The Anatomy of a Skill Package: What's Inside?
 
-When you inspect a modern skill package (e.g. `chaicode-skill`, `stripe-skill`, or `philips-hue-skill`), it is simply a directory of **Markdown files, executable scripts, and metadata** distributed as a Git repo or `.zip`:
+When you inspect a modern skill package (e.g. `payment-gateway-skill`, `stripe-skill`, or `philips-hue-skill`), it is simply a directory of **Markdown files, executable scripts, and metadata** distributed as a Git repo or `.zip`:
 
 ```
-chaicode-pay-skill/
+payment-gateway-skill/
 ├── SKILL.md                  ◄── The Core Brain: Frontmatter + Step-by-Step SOPs
 ├── prompts/                  ◄── Specialized prompt templates & Few-Shot examples
 │   ├── system-instructions.md
@@ -60,7 +55,7 @@ The `SKILL.md` file serves as the manifest and operating procedure for the agent
 name: stripe-payment-specialist
 description: Complete skill for creating payment links, handling refunds, and verifying webhooks in Node.js.
 version: 1.2.0
-author: ChaiCode
+author: Payments Core Team
 triggers:
   - "create payment"
   - "stripe checkout"
@@ -83,13 +78,13 @@ implementing webhooks, or validating idempotency keys.
 
 ---
 
-## 🥊 3. The Great Debate: Why Did the Blackboard Say "MCP is Dead"?
+## 🥊 3. The Great Debate: "Is MCP Dead?"
 
-During Piyush Garg's cohort lecture, a controversial debate was drawn on the blackboard:
+In production AI discussions, a major architectural debate has emerged regarding raw MCP:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              THE BLACKBOARD CONTROVERSY                                │
+│                              THE ARCHITECTURAL DEBATE                                  │
 │                                                                                        │
 │     ┌──────────────────────────────────────────────────────────────┐                   │
 │     │  Skills                                                      │                   │
@@ -122,7 +117,7 @@ During Piyush Garg's cohort lecture, a controversial debate was drawn on the bla
 
 ## 🏆 4. How Skills Solve MCP's Flaws: The Smart Fan vs. Claude Fan Analogy
 
-The blackboard featured an analogy comparing a **Smart Fan** (Raw MCP) to a **Claude Fan** (Agent Skill):
+Consider the architectural analogy comparing a **Smart Fan** (Raw MCP) to a **Claude Fan** (Agent Skill):
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -157,7 +152,7 @@ A developer doesn't just want API calls; they want **architectural guidance**. A
 
 ## 🧅 5. The True Relationship: "Skills Wrap MCP" (The Onion Architecture)
 
-Is MCP actually dead? **No.** The provocative phrase on the blackboard highlights that **raw MCP alone is insufficient**.
+Is MCP actually dead? **No.** The provocative claim that "MCP is dead" simply highlights that **raw MCP alone is insufficient**.
 
 In reality, **Skills and MCP are complementary**:
 
@@ -185,7 +180,7 @@ In reality, **Skills and MCP are complementary**:
 
 - **MCP** is the low-level **wire protocol** (like TCP/HTTP).
 - **A Skill** is the high-level **application package** (like a full Express framework + documentation).
-- An enterprise skill (like `chaicode-pay-skill`) can contain an embedded local MCP server inside its bundle!
+- An enterprise skill (like `payment-gateway-skill`) can contain an embedded local MCP server inside its bundle!
 
 ---
 
@@ -195,7 +190,7 @@ Just as npm revolutionized JavaScript with `npm i <package>`, the AI community h
 
 ```mermaid
 flowchart TD
-    Author["Developer / Company (e.g. Stripe, ChaiCode)"] --> Repo["GitHub Repository / skills.sh / Claude Marketplace"]
+    Author["Developer / Company (e.g. Stripe, OpenSource Team)"] --> Repo["GitHub Repository / skills.sh / Claude Marketplace"]
     
     Repo --> Installer["npx skills add <repo_name>"]
     
@@ -210,8 +205,8 @@ flowchart TD
 # Install a skill directly from GitHub or skills.sh
 npx skills add mohammedsaif001/stripe-payment-skill
 
-# Or install ChaiCode official skill
-npx skills add chaicode/chaicode-pay-skill
+# Or install an official payment skill
+npx skills add payment-infra/payment-gateway-skill
 ```
 
 ### What Happens Behind the Scenes:

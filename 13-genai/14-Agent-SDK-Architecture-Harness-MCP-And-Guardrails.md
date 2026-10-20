@@ -1,9 +1,7 @@
 # 14 — Agent SDK Deep Dive: From REST API to Autonomous Harness, MCP & Guardrails
 
-> **Cohort Series**: Generative AI Notes (`13-genai`)  
 > **Topic**: The 3-Tier Evolution of Calling AI (REST API vs. Provider SDK vs. Agent SDK), The Anatomy of an Autonomous Harness, Building an Agent SDK from Scratch, and Production Implementation using the OpenAI Agent SDK with MCP & Guardrails.  
-> **Core Diagram Reference**: The 3-Tier Architectural Hierarchy (Blackboard Diagram).  
-> **Project References**: [`projects/genai/agent-sdk-from-scratch`](file:///c:/Users/mohammed-saif/Desktop/cohort/projects/genai/agent-sdk-from-scratch/README.md) & [`13-genai/setup/01-prompting/05-cot-with-tool-guardrail-schema.js`](file:///c:/Users/mohammed-saif/Desktop/cohort/13-genai/setup/01-prompting/05-cot-with-tool-guardrail-schema.js).
+> **Core Architecture**: The 3-Tier Hierarchy (Wire Protocol ➔ Client SDK ➔ Autonomous Harness).  
 
 ---
 
@@ -27,9 +25,9 @@ It accomplishes this by providing:
 
 ---
 
-## 🏛️ 2. The 3-Tier Evolution: The Blackboard Diagram Explained
+## 🏛️ 2. The 3-Tier Evolution of Calling AI
 
-The diagram illustrates how software engineering evolved from raw network sockets into autonomous frameworks:
+The diagram below illustrates how software engineering evolved from raw network sockets into autonomous frameworks:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -92,9 +90,7 @@ The diagram illustrates how software engineering evolved from raw network socket
 
 ## 🛠️ 3. If No Agent SDK Exists: Writing Everything from Scratch
 
-Without an off-the-shelf Agent SDK, developers must implement the entire runtime harness from first principles. This exact architecture was built in our companion project:
-- Repository: [`projects/genai/agent-sdk-from-scratch`](file:///c:/Users/mohammed-saif/Desktop/cohort/projects/genai/agent-sdk-from-scratch/README.md)
-- Reference Script: [`13-genai/setup/01-prompting/05-cot-with-tool-guardrail-schema.js`](file:///c:/Users/mohammed-saif/Desktop/cohort/13-genai/setup/01-prompting/05-cot-with-tool-guardrail-schema.js)
+Without an off-the-shelf Agent SDK, developers must implement the entire runtime harness from first principles, managing raw loops, parser errors, and security interceptors manually.
 
 ### The 5 Core Components You Must Build Manually:
 

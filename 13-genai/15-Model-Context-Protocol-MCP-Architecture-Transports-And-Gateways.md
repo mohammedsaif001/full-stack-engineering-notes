@@ -1,10 +1,7 @@
 # 15 — Model Context Protocol (MCP): The HTTP Standard for AI Agents, Transports & Gateways
 
-> **Cohort Series**: Generative AI Notes (`13-genai`)  
 > **Topic**: What is MCP? The $M \times N$ Tool Integration Crisis, MCP Architecture (Client vs. Server), Skills vs. MCP, Transports (STDIO vs. SSE), Building Custom MCP Servers, Connecting to IDEs (Cursor/Antigravity/VS Code), Context Poisoning, and The MCP Gateway ("Nginx for AI").  
-> **Core Visual**: The Evolution from Custom Tool Wrappers to Standardized Wire Protocols and Semantic Tool Gateways.  
-> **Lecturer Reference**: Piyush Garg Cohort Lecture Diagrams.  
-> **Related Notes**: [`14-Agent-SDK-Architecture-Harness-MCP-And-Guardrails.md`](file:///c:/Users/mohammed-saif/Desktop/cohort/13-genai/14-Agent-SDK-Architecture-Harness-MCP-And-Guardrails.md).
+> **Core Architecture**: Client-Server Architecture, JSON-RPC 2.0, Transports (STDIO/SSE), and Semantic Tool Gateways.  
 
 ---
 
@@ -280,7 +277,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   if (name === "apply_coupon") {
     const { cartId, couponCode } = ApplyDiscountSchema.parse(args);
-    const discount = couponCode === "COHORT20" ? "20% OFF" : "Invalid Code";
+    const discount = couponCode === "PROMO20" ? "20% OFF" : "Invalid Code";
     return {
       content: [
         {
@@ -344,7 +341,7 @@ Once saved:
 
 ## 🚗 8. Real-World Security: The Smart Bulb vs. Connected Car Analogy
 
-From Piyush Garg's blackboard lecture, consider the difference between controlling a smart bulb versus an automobile engine over an API:
+Consider the difference between controlling a smart bulb versus an automobile engine over an API:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -378,7 +375,7 @@ As you add more MCP integrations (Stripe, GitHub, Slack, Gmail, Jira, AWS, Kuber
    MCP Servers Installed:
    ├── Stripe MCP Server      : 46 tools
    ├── Gmail MCP Server       : 102 tools
-   ├── ChaiCode MCP Server    : 27 tools
+   ├── Analytics MCP Server   : 27 tools
    ├── AWS MCP Server         : 85 tools
    └── GitHub MCP Server      : 60 tools
    ─────────────────────────────────────
