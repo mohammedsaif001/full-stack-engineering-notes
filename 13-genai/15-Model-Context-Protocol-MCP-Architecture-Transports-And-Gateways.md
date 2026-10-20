@@ -382,13 +382,15 @@ As you add more MCP integrations (Stripe, GitHub, Slack, Gmail, Jira, AWS, Kuber
    Total: 320 tools registered!
 ```
 
-### The 3 Severe Consequences:
+### The 4 Severe Consequences:
 1. **Context Window Poisoning & Token Bloat**:
    Even if the user simply types `"Hi"`, the agent host must serialize all **320 tool schemas** (names, descriptions, parameter types) into the LLM's system prompt! This burns 15,000–30,000 tokens on every single turn, costing money and introducing 4–8 seconds of latency.
 2. **Model Hallucination & Confusion**:
    LLMs degrade in accuracy when presented with hundreds of similar tool schemas. The model often picks the wrong tool or hallucinates arguments.
 3. **Maintenance Nightmares**:
    If a team adds a new MCP server or changes an API parameter, every single engineer's local client configuration must be manually updated.
+4. **Server-Side Scalability & Latency Bottleneck (The 1 Million User Problem)**:
+   When tools execute on remote server-side MCP instances, 1 million active users generate millions of concurrent remote requests. Tool providers face enormous infrastructure and autoscaling costs, while multi-step agent reasoning loops suffer cumulative network latency on every round-trip. (This specific bottleneck motivated the creation of decentralized, client-side Agent Skills).
 
 ---
 
