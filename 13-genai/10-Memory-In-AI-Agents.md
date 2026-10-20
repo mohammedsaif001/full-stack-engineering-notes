@@ -319,6 +319,8 @@ When the user asks: *"What fuel does my car use?"*:
 3. Follows edge `FUEL_TYPE ➔ (Diesel)`.
 4. Returns exact factual traversal with **zero vector hallucinations**!
 
+> 🔗 **Deep-Dive Available**: For the comprehensive architectural guide on Graph DBs, multi-hop Cypher queries, asynchronous background workers in Node.js, and self-correction invalidation loops, see **[11 — Graph Databases, Cypher Queries & Knowledge Graph Memory in LLMs](./11-Graph-Databases-Cypher-Queries-And-Knowledge-Graphs-In-LLMs.md)**.
+
 ---
 
 ## 💻 9. Code Implementation: Complete Agent Memory in Node.js
