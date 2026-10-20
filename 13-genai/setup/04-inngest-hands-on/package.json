@@ -1,0 +1,23 @@
+{
+  "name": "inngest-hands-on-mastery",
+  "version": "1.0.0",
+  "description": "Comprehensive Inngest Course: Durable Execution, Multi-Step Workflows, Event-Driven Fan-Out, and Scheduled Cron Workflows",
+  "type": "module",
+  "scripts": {
+    "inngest:dev": "npx inngest-cli@latest dev",
+    "dev:ch1": "tsx watch chapter01/src/index.ts",
+    "dev:ch2": "tsx watch chapter02/src/index.ts",
+    "dev:ch3": "tsx watch chapter03/src/index.ts",
+    "dev:ch4": "tsx watch chapter04/src/index.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "inngest": "^3.31.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
