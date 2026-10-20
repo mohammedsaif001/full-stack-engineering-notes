@@ -343,6 +343,73 @@ export const generateAIAnswer = inngest.createFunction(
 
 ---
 
+### 📢 6.1 The Event-Driven Fan-Out Pattern (1 Event $\rightarrow$ N Functions)
+
+In traditional monoliths, when a user signs up (`POST /api/signup`), the server sequentially creates the user, sends a welcome email, sets up workspace storage, and logs analytics:
+* If sending the email fails or times out, the user gets a 500 error!
+* The API response takes 2–3 seconds.
+
+In an **Inngest Event-Driven Architecture**, the API creates the record, emits **one event**, and returns a 201 response in **15 milliseconds**:
+
+```
+                         POST /api/signup (Returns in 15ms!)
+                                │
+                                ▼
+                 Emit: "user/signup.completed"
+                                │
+        ┌───────────────────────┼───────────────────────┐
+        ▼                       ▼                       ▼
+[ sendWelcomeEmail ]   [ setupPreferences ]   [ trackAnalytics ]
+(Retries independently) (Retries independently)(Retries independently)
+```
+
+```typescript
+// All 3 functions listen to the SAME event and execute in parallel:
+export const sendWelcomeEmail = inngest.createFunction(
+  { id: "send-welcome-email" },
+  { event: "user/signup.completed" },
+  async ({ event, step }) => { /* ... */ }
+);
+
+export const setupPreferences = inngest.createFunction(
+  { id: "setup-user-preferences" },
+  { event: "user/signup.completed" },
+  async ({ event, step }) => { /* ... */ }
+);
+
+export const trackAnalytics = inngest.createFunction(
+  { id: "track-signup-analytics" },
+  { event: "user/signup.completed" },
+  async ({ event, step }) => { /* ... */ }
+);
+```
+
+---
+
+### ⏰ 6.2 Timezone-Aware Cron & Scheduled Workflows
+
+Inngest supports recurring cron schedules with built-in timezone support (`TZ=America/New_York`) and **Dual Triggers** (running on cron AND on a manual event for immediate testing):
+
+```typescript
+export const dailySalesReport = inngest.createFunction(
+  { id: "daily-sales-report", name: "Daily Sales Report" },
+  // Dual Trigger: Runs on cron schedule OR on manual test event!
+  [
+    { cron: "TZ=America/New_York 0 9 * * *" },
+    { event: "admin/trigger.daily-report" }
+  ],
+  async ({ step }) => {
+    const sales = await step.run("query-sales", async () => fetchDailySales());
+    await step.run("email-report", async () => emailLeadership(sales));
+  }
+);
+```
+
+> 💻 **Hands-On Code Available**:  
+> For the complete, runnable Express code covering Chapters 1–4, see **[setup/04-inngest-hands-on/](./setup/04-inngest-hands-on/)** with its single unified `package.json`!
+
+---
+
 ## ⚖️ 7. The Architectural Comparison: Inngest vs. Temporal vs. RabbitMQ + Redis
 
 | Architectural Feature | Traditional Async (`await`) | RabbitMQ + Redis Queue | Temporal | Inngest |
