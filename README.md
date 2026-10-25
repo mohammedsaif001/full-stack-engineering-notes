@@ -177,6 +177,7 @@ This repository serves as an all-in-one technical reference, architectural bluep
   - **Advanced RAG**: Query rewriting, HyDE (Hypothetical Document Embeddings), Reciprocal Rank Fusion (RRF), cross-encoder reranking, hierarchical chunking.
   - **Vectorless RAG**: Knowledge graphs, SQL/BM25 keyword search, hybrid dense-sparse retrieval.
   - **Agent Memory**: Ephemeral context, short-term buffer memory, long-term semantic memory, entity memory.
+- **Realtime Voice Agents**: Cascaded STT-TTS pipelines, sentence-boundary streaming buffers, in-memory audio queues, hardware RMS/VAD barge-in interruption management, conversational psychology, and native multimodal speech-to-speech with OpenAI Realtime WebRTC.
 
 ---
 
