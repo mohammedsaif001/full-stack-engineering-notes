@@ -794,73 +794,172 @@ The **OpenAI Realtime API** (`gpt-4o-realtime-preview`) is a single multimodal m
 
 $$\text{User Mic} \xrightarrow{\quad\text{WebRTC}\quad} \fbox{ GPT-4o Realtime } \xrightarrow{\quad\text{WebRTC}\quad} \text{Speaker}$$
 
-### How to Build It (2 Files: Server + Client)
+### How to Build It Using the OpenAI SDK & Express
 
-#### 1. Backend: Mint Ephemeral Token (`server.js`)
+Instead of making raw HTTP `fetch()` requests, production voice systems use the **OpenAI SDK** (`npm install openai express dotenv`) to configure the agent harness, attach function tools, and mint secure ephemeral sessions.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                   REALTIME VOICE AGENT ARCHITECTURE (EXPRESS + SDK)                    │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+
+ [ Browser Microphone ] ◄────────────── WebRTC Audio (UDP) ──────────────► [ OpenAI GPT-4o ]
+           │                                                                 (Realtime Model)
+           │ 1. Request Session Token                                              ▲
+           ▼                                                                       │
+ ┌───────────────────┐                     OpenAI SDK                              │
+ │  Express Backend  │ ────────────────────────────────────────────────────────────┘
+ │   (`server.js`)   │  openai.beta.realtime.sessions.create()
+ └───────────────────┘  • Defines Agent Instructions & Persona
+                        • Declares Function Tools (DB, APIs)
+                        • Configures Server-Side VAD
+```
+
+---
+
+#### 1. Backend: Express Server with OpenAI SDK (`server.js`)
+
+Here, our Express server uses the official **OpenAI SDK** to instantiate the voice agent harness and define its capabilities:
+
 ```javascript
 import express from 'express';
 import dotenv from 'dotenv';
+import OpenAI from 'openai';
+
 dotenv.config();
 
 const app = express();
+app.use(express.json());
 
-// Creates a short-lived token so API key stays hidden
-app.post('/session', async (req, res) => {
-  const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-realtime-preview-2024-12-17',
-      voice: 'coral',
-      modalities: ['audio', 'text'],
-      turn_detection: {
-        type: 'server_vad', // Server automatically handles turn-taking & barge-in!
-        threshold: 0.5,
-        silence_duration_ms: 500,
-      },
-    }),
-  });
-
-  const data = await response.json();
-  res.json(data);
+// Initialize the OpenAI SDK client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-app.listen(3000, () => console.log('Server running on http://localhost:3000'));
+/**
+ * Mint an Ephemeral Realtime Session Token using the OpenAI SDK
+ * This keeps your master API key secret on the server.
+ */
+app.post('/api/realtime-session', async (req, res) => {
+  try {
+    // Use the OpenAI SDK to configure the Realtime Voice Agent
+    const session = await openai.beta.realtime.sessions.create({
+      model: 'gpt-4o-realtime-preview-2024-12-17',
+      voice: 'coral', // alloy, ash, coral, echo, fable, onyx, nova, sage, shimmer
+      modalities: ['audio', 'text'],
+      instructions: `You are a warm, highly conversational customer support voice agent.
+      Rules:
+      1. Always speak naturally and concisely (1-2 sentences at a time).
+      2. If the user asks for account or order information, use the available tools.
+      3. Handle interruptions gracefully without repeating whole paragraphs.`,
+
+      // Built-in Server-Side Voice Activity Detection (Barge-in out of the box!)
+      turn_detection: {
+        type: 'server_vad',
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 500, // Concludes turn after 500ms of user silence
+      },
+
+      // Define Voice Agent Tools (Function Calling over Live Audio)
+      tools: [
+        {
+          type: 'function',
+          name: 'getAccountBalance',
+          description: 'Look up the current balance for an account',
+          parameters: {
+            type: 'object',
+            properties: {
+              accountId: { type: 'string', description: 'The customer account ID' },
+            },
+            required: ['accountId'],
+          },
+        },
+      ],
+      tool_choice: 'auto',
+    });
+
+    // Return session data (contains the temporary client_secret.value)
+    res.json(session);
+  } catch (error) {
+    console.error('Failed to create realtime session via SDK:', error);
+    res.status(500).json({ error: 'Failed to create realtime session' });
+  }
+});
+
+app.listen(3000, () => console.log('🚀 Express Voice Server running on http://localhost:3000'));
 ```
 
-#### 2. Frontend: WebRTC Realtime Agent (`client.js`)
-```javascript
-async function startRealtimeAgent() {
-  // 1. Get token from server
-  const sessionRes = await fetch('/session', { method: 'POST' });
-  const session = await sessionRes.json();
-  const token = session.client_secret.value;
+---
 
-  // 2. Setup WebRTC
+#### 2. Frontend: Browser WebRTC Realtime Agent (`client.js`)
+
+The browser asks our Express backend for the ephemeral token, and then opens a direct **WebRTC media channel** with OpenAI:
+
+```javascript
+/**
+ * Browser WebRTC Realtime Voice Client with Tool Execution
+ */
+async function startRealtimeVoiceAgent() {
+  // 1. Fetch ephemeral session token from our Express SDK server
+  const response = await fetch('/api/realtime-session', { method: 'POST' });
+  const session = await response.json();
+  const ephemeralKey = session.client_secret.value;
+
+  // 2. Setup standard WebRTC PeerConnection
   const pc = new RTCPeerConnection();
 
-  // Play audio when agent responds
-  const audio = document.createElement('audio');
-  audio.autoplay = true;
-  pc.ontrack = (e) => { audio.srcObject = e.streams[0]; };
+  // Play audio as soon as the agent speaks
+  const audioElem = document.createElement('audio');
+  audioElem.autoplay = true;
+  pc.ontrack = (event) => {
+    audioElem.srcObject = event.streams[0];
+  };
 
-  // Add user microphone stream
-  const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
-  pc.addTrack(mic.getTracks()[0]);
+  // Capture user microphone and attach track
+  const localStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+  });
+  pc.addTrack(localStream.getTracks()[0]);
 
-  // Data channel for text and status
-  const dc = pc.createDataChannel('oai-events');
-  dc.onmessage = (e) => {
-    const event = JSON.parse(e.data);
-    if (event.type === 'input_audio_buffer.speech_started') {
-      console.log('⚡ User interrupted the agent!');
+  // 3. Open DataChannel for real-time events, transcripts, and tool calling
+  const dataChannel = pc.createDataChannel('oai-events');
+
+  dataChannel.onmessage = async (event) => {
+    const msg = JSON.parse(event.data);
+
+    // Server-side VAD detected user speech: instant automatic barge-in!
+    if (msg.type === 'input_audio_buffer.speech_started') {
+      console.log('⚡ User interrupted the agent! Audio halted automatically.');
+    }
+
+    // Agent called a tool over voice!
+    if (msg.type === 'response.function_call_arguments.done') {
+      console.log(`🔧 Tool call requested: ${msg.name} with args:`, msg.arguments);
+
+      let result = { balance: '$1,250.00' }; // Simulated DB/API call
+
+      // Return the tool output back to the agent so it can speak the answer
+      const toolOutputEvent = {
+        type: 'conversation.item.create',
+        item: {
+          type: 'function_call_output',
+          call_id: msg.call_id,
+          output: JSON.stringify(result),
+        },
+      };
+      dataChannel.send(JSON.stringify(toolOutputEvent));
+
+      // Instruct the agent to speak the answer based on the tool result
+      dataChannel.send(JSON.stringify({ type: 'response.create' }));
     }
   };
 
-  // 3. Negotiate connection with OpenAI
+  // 4. Negotiate WebRTC Session with OpenAI
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 
@@ -870,19 +969,21 @@ async function startRealtimeAgent() {
       method: 'POST',
       body: offer.sdp,
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${ephemeralKey}`,
         'Content-Type': 'application/sdp',
       },
     }
   );
 
-  await pc.setRemoteDescription({
+  const answer = {
     type: 'answer',
     sdp: await sdpResponse.text(),
-  });
+  };
 
-  console.log('🎉 Connected! Realtime full-duplex voice active (<300ms latency).');
+  await pc.setRemoteDescription(answer);
+  console.log('🎉 Connected! Realtime full-duplex voice agent active (<300ms latency).');
 }
+
 ```
 
 ---
