@@ -1,131 +1,74 @@
-# 21 — Realtime Voice Agents: STT-TTS Chained Pipelines, Interruption Management, and Native Multimodal Voice
+# 21 — Realtime Voice Agents: STT-TTS Pipelines, Interruption Handling & Turn-Taking
 
-> **Topic**: Full-Stack Architecture of Realtime Voice Agents — From Cascaded Chained Pipelines (STT ➔ LLM ➔ TTS) to Native Multimodal Speech-to-Speech (OpenAI Realtime API).  
-> **Core Architecture**: Audio Serialization, Sentence-Level Chunking Buffers, Web Audio API Queues, RMS/VAD Barge-in Interruption, Backchanneling vs. Floor Takeover, and OpenAI Realtime WebRTC/SDK Integration.  
-> **Mental Model**: Cascaded Translation vs. Native Multimodal Stream; Conversational Turn-Taking as an Asynchronous Distributed State Machine.
-
----
-
-## 🧭 Executive Overview: The Voice Paradigm Shift
-
-Human conversation is one of the most complex distributed systems in existence. It operates on a sub-conscious, bidirectional loop characterized by **continuous streaming, sub-300ms latency, micro-intonations, and dynamic turn-taking**:
-
-```
-Traditional Text Chat:     [User Types] ──── Latency (2-5s) ────► [LLM Generates] ────► [User Reads]
-                               (Half-Duplex, Turn-Based, Asynchronous)
-
-Realtime Voice Agent:      [User Streams Audio] ◄─── Full-Duplex (Overlap / Barge-in) ───► [Agent Streams Audio]
-                               (Sub-300ms, Prosody-Aware, Continuous Bidirectional)
-```
-
-Building a voice agent is **not** simply plugging an audio file into an LLM. It requires solving three interrelated engineering problems:
-1. **Acoustic Serialization & Representation**: Converting continuous pressure waves into discrete computational units.
-2. **Cascaded Latency Compounding**: Overcoming the delay of chaining three distinct AI models (Speech-to-Text $\rightarrow$ Text-to-Text $\rightarrow$ Text-to-Speech).
-3. **Conversational Turn Dynamics & Psychology**: Managing interruptions (barge-in), distinguishing backchanneling (*"hmm"*, *"uh-huh"*) from floor takeover, and handling audio buffer starvation.
+> **Topic**: Building Realtime Voice Agents — From Chained STT-TTS Pipelines to Native Speech-to-Speech with OpenAI Realtime API.  
+> **Core Mental Model**: Human conversation is not a request-response API. It is a continuous, bidirectional streaming loop with subconscious turn-taking, audio queuing, and barge-in interruptions.
 
 ---
 
-## 🎙️ 1. The Nature of Voice vs. Text in LLMs
+## 🎙️ 1. Why Voice is Unique: Audio Serialization vs. Text LLMs
 
-### Audio is Continuous & Serializable; LLMs are Discrete & Symbolic
-
-Audio in physical reality is a continuous mechanical vibration of air particles. To represent audio in computing:
-* **Sampling Rate**: The analog wave is sampled thousands of times per second (e.g., $16\text{ kHz} = 16,000$ amplitude snapshots per second, $24\text{ kHz}$, $48\text{ kHz}$).
-* **Quantization & Bit Depth**: Each snapshot is converted into a binary integer (typically 16-bit Pulse Code Modulation — PCM).
-* **Serialization**: These PCM integers are flattened into byte arrays (`Uint8Array`, `Int16Array`, `ArrayBuffer`) that can be transmitted over network sockets (WebSocket frames, WebRTC RTP media streams).
+### Voice is Serializable
+When you watch a video on YouTube or talk on a phone call, you hear the other person's voice in real time. How does that work?
+* Audio is physical air pressure waves.
+* Microphones convert these waves into electrical signals, and computers sample them thousands of times per second (e.g., 16,000 times/sec = 16 kHz).
+* Each sample is converted into numbers (PCM bytes).
+* Because audio is just a series of bytes, it is **serializable**—it can be streamed chunk-by-chunk over network sockets (WebSockets, WebRTC) in real time.
 
 ```
-   Analog Waveform               PCM Discretization                     Byte Serialization
-   (Continuous)                  (16 kHz / 16-bit)                       (Binary Stream)
-      ~~~/\~~~            ──►    | | | | | | | | | | | |    ──►   [ 0x1A, 0x02, 0xFE, 0x11, ... ]
+Analog Voice (Wave) ──► Microphone ──► PCM Numbers [12, -45, 89, ...] ──► Network Stream
 ```
 
-### Why Couldn't LLMs Process Native Voice Historically?
+### Why Weren't LLMs Trained on Voice Directly?
+If voice is just serializable bytes, why did AI start with text?
+1. **LLMs are trained on discrete text tokens**: Text is dense and clean. A token like `"apple"` carries pure semantic meaning.
+2. **Everyone has a unique voice**: Every person has a different pitch, accent, speed, tone, and vocal frequency.
+3. **High Data Footprint**: One second of speech has 16,000 to 48,000 data points. One second of text is only 2 to 3 tokens. Training an attention transformer directly on raw audio waves was historically too heavy and unstable.
 
-Foundation LLMs (GPT-3, GPT-4, LLaMA) were trained on **discrete text tokens** using Byte-Pair Encoding (BPE). Text tokens are high-density, semantic abstractions. A single token like `" apple"` encapsulates the visual, conceptual, and linguistic properties of an apple.
-
-Audio, by contrast, possesses a dramatically lower **semantic-to-data ratio**:
-1. **High Dimensionality**: One second of clean speech at 16 kHz 16-bit generates $32,000\text{ bytes}$. One second of text is only 2 to 4 tokens ($\approx 8\text{ bytes}$). Processing raw audio through standard transformer self-attention ($O(N^2)$ complexity) explodes computational and memory requirements.
-2. **Acoustic Entanglement**: An audio waveform does not just encode *what* was said (the semantics). It simultaneously encodes the speaker's vocal tract geometry, pitch, accent, emotional state, background noise, microphone distortion, and reverberation.
-3. **Continuous Boundary Problem**: In text, words have spaces and punctuation. In raw acoustic signals, there are no discrete spaces between words; sounds blend together continuously (*coarticulation*).
-
-Because training an end-to-end foundation model directly on raw audio tokens was computationally intractable and prone to hallucination in earlier years, the industry adopted the **Cascaded (Chained) Architecture**.
+Because direct voice-to-voice was difficult to train, the **Chained (Cascaded) Architecture** was born.
 
 ---
 
-## 🧩 2. The Chained Voice Architecture (STT ➔ LLM ➔ TTS)
+## 🏗️ 2. The Chained Architecture (STT ➔ LLM ➔ TTS)
 
-The cascaded approach decomposes the problem into three specialized pipeline stages:
+Instead of doing speech-to-speech in one single model, we break the problem into three separate steps:
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 THE CASCADED PIPELINE ARCHITECTURE                               │
-└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                              THE 3-STEP CHAINED PIPELINE                               │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 
-     AUDIO IN                                                                          AUDIO OUT
- (Microphone Stream)                                                               (Speaker Playback)
-        │                                                                                  ▲
-        ▼                                                                                  │
- ┌─────────────┐            ┌───────────────────┐             ┌─────────────┐             ┌┴────────────┐
- │  Stage 1:   │   Text     │     Stage 2:      │  Text Chunk │  Stage 3:   │ Binary PCM  │ Audio Queue │
- │ Speech-To-  │ ─────────► │  Text-To-Text     │ ──────────► │  Text-To-   │ ──────────► │ & Playback  │
- │ Text (STT)  │ Transcript │  (LLM Reasoning)  │  (Sentence) │ Speech(TTS) │ Audio Data  │ Buffer      │
- └─────────────┘            └───────────────────┘             └─────────────┘             └─────────────┘
-  • Whisper API              • GPT-4o / GPT-4o-mini            • OpenAI TTS
-  • Deepgram Nova-2          • Claude 3.5 Sonnet               • ElevenLabs Turbo v2
-  • Web Speech API           • LLaMA 3.3                       • Cartesia Sonic
+     User Speaks                                                            Agent Speaks
+          │                                                                      ▲
+          ▼                                                                      │
+   ┌─────────────┐             ┌─────────────────┐             ┌─────────────┐  │
+   │   Step 1:   │    Text     │     Step 2:     │  Text Chunk │   Step 3:   │  │
+   │  Speech-To- │ ──────────► │  Text-To-Text   │ ──────────► │  Text-To-   │ ─┘
+   │  Text (STT) │  Transcript │  (LLM Thinking) │  (Response) │ Speech(TTS) │
+   └─────────────┘             └─────────────────┘             └─────────────┘
+    • Browser STT               • GPT-4o / Mini                 • OpenAI TTS
+    • Whisper                   • Claude                        • ElevenLabs
+    • Deepgram                  • LLaMA                         • Cartesia
 ```
 
-### Stage Breakdown:
-
-| Stage | Input | Output | Responsibilities | Latency Profile |
-| :--- | :--- | :--- | :--- | :--- |
-| **Stage 1: STT** | Raw Audio (PCM / Opus) | Text Transcript | Acoustic feature extraction, language modeling, phoneme mapping, punctuation insertion. | $150\text{ms} - 800\text{ms}$ |
-| **Stage 2: LLM** | Text Prompt + History | Output Text Tokens | Intent recognition, conversational context, tool execution, reasoning, response generation. | $300\text{ms} - 1500\text{ms}$ (TTFT) |
-| **Stage 3: TTS** | Text String | Audio Waveform | Grapheme-to-phoneme conversion, prosody synthesis, vocal timbre modeling, audio encoding. | $200\text{ms} - 600\text{ms}$ |
+1. **STT (Speech-to-Text)**: Takes incoming audio waves from the microphone and transcribes them into plain text.
+2. **LLM / TTT (Text-to-Text)**: Takes the transcribed text, understands the context, and generates an answer in text.
+3. **TTS (Text-to-Speech)**: Takes the generated text and converts it into realistic spoken audio using selected voices (like OpenAI's `coral`, `alloy`, `echo`, etc.).
 
 ---
 
-## 🔍 3. The Naive Prototype (Deconstructing the Cohort Video Screenshots)
+## 🧱 3. The Naive Approach (The Basic Prototype)
 
-In the initial exploratory phase of building voice agents, developers frequently wire these three stages together using standard HTTP calls and browser APIs. Let's analyze the exact implementation from the cohort session screenshots:
-
-### Screenshot Analysis & Code Reconstruction
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ SCREENSHOT 1: The LLM Request (`script.js`)                                                     │
-│ - Uses OpenAI API to send prompt and parse text.                                                │
-│ - In the video: `fetch('https://api.openai.com/v1/responses')` or `/v1/chat/completions`.      │
-│ - Model identifier used: preview/chat model (e.g., `gpt-5.6-luna` or `gpt-4o-mini`).            │
-├─────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ SCREENSHOTS 2 & 3: Browser STT Setup (`script.js`)                                              │
-│ - Instantiates `window.SpeechRecognition` (Web Speech API).                                     │
-│ - Sets `continuous = true`, `interimResults = false`, `maxAlternatives = 1`.                   │
-│ - Hooks `onresult` to grab `event.results[event.results.length - 1][0].transcript`.              │
-│ - Awaits `llm(transcript)` and logs output.                                                     │
-├─────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ SCREENSHOT 4: The TTS Playback (`script.js`)                                                    │
-│ - Calls `fetch('https://api.openai.com/v1/audio/speech')` with model `gpt-4o-mini-tts` / `tts-1`│
-│ - Voice: `'coral'`, Instructions: `'Speak in a cheerful, warm and natural tone.'`               │
-│ - Creates an `AudioBlob`, binds `URL.createObjectURL(audioBlob)`, calls `audio.play()`.         │
-└─────────────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
-Here is the complete, syntactically corrected naive prototype:
+The simplest way to build a voice agent is to wire these three stages together sequentially:
 
 ```javascript
 // ============================================================================
-// NAIVE CHUNKED PROTOTYPE (Reference: Cohort Video script.js)
+// BASIC VOICE PROTOTYPE
 // ============================================================================
 
 const API_KEY = 'YOUR_OPENAI_API_KEY';
 
-/**
- * Stage 2: Send recognized text to the LLM
- */
+// 1. LLM: Sends text to OpenAI and gets text response
 async function llm(userText = '') {
-  // Uses OpenAI Chat Completions (or the new Responses API endpoint)
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -135,10 +78,7 @@ async function llm(userText = '') {
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [
-        {
-          role: 'system',
-          content: 'You are a warm, concise conversational voice assistant. Keep answers brief (1-2 sentences).',
-        },
+        { role: 'system', content: 'You are a helpful voice assistant. Keep answers concise.' },
         { role: 'user', content: userText },
       ],
     }),
@@ -148,9 +88,7 @@ async function llm(userText = '') {
   return data.choices?.[0]?.message?.content ?? '';
 }
 
-/**
- * Stage 3: Convert the LLM text response into spoken audio
- */
+// 2. TTS: Converts the LLM text answer into an audio blob and plays it
 async function speak(text = '') {
   if (!text.trim()) return;
 
@@ -161,8 +99,8 @@ async function speak(text = '') {
       Authorization: `Bearer ${API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'tts-1', // or gpt-4o-mini-tts where supported
-      voice: 'coral', // available voices: alloy, ash, coral, echo, fable, onyx, nova, sage, shimmer
+      model: 'tts-1',
+      voice: 'coral',
       input: text,
       instructions: 'Speak in a cheerful, warm and natural tone.',
     }),
@@ -172,46 +110,33 @@ async function speak(text = '') {
   const audioUrl = URL.createObjectURL(audioBlob);
   const audio = new Audio(audioUrl);
 
-  // Clean up object URL when playback finishes to prevent memory leaks
   audio.onended = () => URL.revokeObjectURL(audioUrl);
   await audio.play();
 }
 
-/**
- * Stage 1: Continuous Speech Recognition using Browser Web Speech API
- */
+// 3. STT: Uses Browser SpeechRecognition to listen to microphone
 async function main() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    alert('Web Speech API is not supported in this browser. Please use Google Chrome.');
-    return;
-  }
+  const recognition = new SpeechRecognition();
 
-  const speechRecognition = new SpeechRecognition();
-  speechRecognition.continuous = true;
-  speechRecognition.interimResults = false; // Only trigger when user stops speaking
-  speechRecognition.maxAlternatives = 1;
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
 
-  speechRecognition.onstart = function () {
-    console.log('🎤 SpeechRecognition has started. Speak into your microphone...');
-  };
+  recognition.onstart = () => console.log('🎤 Speech recognition started...');
 
-  speechRecognition.onresult = async function (event) {
+  recognition.onresult = async (event) => {
     const transcript = event.results[event.results.length - 1][0].transcript;
     console.log('User:', transcript);
 
-    // Naive chained execution: wait for LLM, then wait for TTS
-    const textResponse = await llm(transcript);
-    console.log('Agent:', textResponse);
+    // Call LLM then call TTS
+    const agentText = await llm(transcript);
+    console.log('Agent:', agentText);
 
-    await speak(textResponse);
+    await speak(agentText);
   };
 
-  speechRecognition.onerror = function (err) {
-    console.error('Speech Recognition Error:', err);
-  };
-
-  speechRecognition.start();
+  recognition.start();
 }
 
 main();
@@ -219,217 +144,171 @@ main();
 
 ---
 
-### ⚠️ Why the Naive Prototype Fails Catastrophically in Production
+### Why the Naive Prototype Fails in Real Life
 
-While this prototype works for a static demo, it collapses under real human conversational conditions:
+This naive approach works as a quick demo, but it breaks down completely when talking to it:
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 THE CASCADED LATENCY BOTTLENECK                                  │
-└──────────────────────────────────────────────────────────────────────────────────────────────────┘
-
- User Finishes
- Speaking
+ User stops speaking
    │
-   ├── [ STT Processing / Silence Window ] ────────────► 800ms - 1,200ms
+   ├── [ STT processing delay ] ──────────────► 800ms
    │
-   ├── [ LLM Full Generation (Blocking) ] ─────────────► 1,500ms - 3,000ms
+   ├── [ LLM generates full answer ] ─────────► 2,000ms
    │
-   ├── [ TTS Synthesis on Entire Paragraph ] ──────────► 800ms - 1,500ms
-   │
-   ├── [ Network Blob Download & Decoding ] ───────────► 200ms - 400ms
+   ├── [ TTS synthesizes full audio ] ────────► 1,200ms
    │
    ▼
- First Spoken Word by Agent: Total Latency = 3.3s to 6.1s!
- (Human acceptable conversational gap is under 300ms - 500ms. Anything over 1s feels broken.)
+ First word played: Total delay = ~4 to 5 seconds!
 ```
 
-1. **Compounding Latency**: Because each stage is executed **serially** and **in bulk**, latency is additive:
-   $$\text{Total Latency} = T_{\text{STT finish}} + T_{\text{LLM completion}} + T_{\text{TTS synthesis}} + T_{\text{Network}}$$
-2. **Dead Air**: During this 3 to 6-second window, the user has zero feedback. They often say *"Hello? Are you there?"*, which cancels or corrupts the pending turn.
-3. **Zero Interruption Capability**: If the agent begins speaking a long paragraph and the user wants to interject, the agent is deaf to the microphone while the `<audio>` tag plays out.
+* **The Awkward Silence**: In normal human conversation, the gap between speakers is **200ms to 400ms**. If an agent takes 4 seconds to respond, you wonder: *"Did it hear me? Is it broken?"*
+* **Zero Interruption**: If the LLM generates a long paragraph, the browser plays it to completion. If you try to speak, the agent talks over you and ignores you.
 
 ---
 
-## ⚡ 4. The Latency Crisis & Streaming Bottlenecks
+## ⚡ 4. The Streaming Fix & The Speed Mismatch Problem
 
-To eliminate the 4-second delay, we must switch from **batch execution** to **streaming pipelining**:
+To solve the 4-second delay, we shouldn't wait for the full response. As the LLM generates words, we should **stream** them immediately into audio:
 
-$$\text{User Audio} \xrightarrow{\text{stream}} \text{STT} \xrightarrow{\text{stream tokens}} \text{LLM} \xrightarrow{\text{stream audio}} \text{TTS} \xrightarrow{\text{stream chunks}} \text{Speaker}$$
+$$\text{User Speaks} \longrightarrow \text{STT} \longrightarrow \textbf{Stream Tokens} \longrightarrow \textbf{Stream Audio} \longrightarrow \text{Ear}$$
 
-However, introducing streaming immediately uncovers a fundamental physics problem: **The Speed Mismatch**.
+### The New Problem: The Speed Mismatch
+As soon as you implement streaming, you run into a physical bottleneck:
 
-### The Producer-Consumer Velocity Imbalance
+* **APIs are fast**: An LLM generates text at **80 to 120 tokens per second**.
+* **Speaking takes time**: A human voice only speaks at **2.5 to 3.5 words per second** (~150 words per minute).
 
 ```
-LLM Generation Speed:   80 - 120 Tokens / Second   (Hyper-Fast Producer)
-Human Speaking Speed:    2.5 - 3.5 Words / Second   (Slow Consumer: ~150 words/minute)
+LLM Producer:   [Token][Token][Token][Token][Token][Token]  (Ultra Fast: 100/sec)
+                                 │
+                                 ▼
+Audio Consumer: [ --- Speaking Word 1 --- ]                (Slow: 3/sec)
 ```
 
-* The LLM emits text nearly **$10\times$ faster** than a human can speak it.
-* If you generate an audio chunk for every single token and immediately invoke `audio.play()`, the browser will either:
-  1. Trigger overlapping audio tracks where 15 voices speak simultaneously.
-  2. Crash the browser's audio buffer.
-  3. Stutter violently as micro-network fluctuations cause audio underruns.
-
-**Solution**: We must introduce an **In-Memory Sequential Audio Queue** that buffers incoming audio segments while draining them sequentially at physical speech speed.
+If the model finishes generating the whole answer in 1 second, but speaking it takes 15 seconds:
+* If you call `speak()` on every token, the audio plays over itself like a chaotic echo chamber.
+* You need an **In-Memory Audio Queue** (`audioQueue`). Once the current chunk finishes playing (`onended`), it picks up and plays the next delta.
 
 ---
 
-## 🎭 5. Token Streaming vs. Sentence-Level Chunking & Human Prosody
+## 🧩 5. The "Masked Word" Dilemma: Token Streaming vs. Sentence Chunking
 
-A naive developer's first instinct is: *"Stream token by token to TTS as soon as the LLM yields it."*
+A common first thought is: *"Why not send every single word to TTS as soon as the LLM yields it?"*
 
-This fails because of **The Masked Word Dilemma**:
+This leads to the **Masked Word Dilemma**:
 
-### The Masked Word Dilemma (Prosody & Pronunciation Collapse)
-
-Consider the sentence:
+### How Humans Speak
+When you say:
 > *"Hello, how are you today?"*
 
-When a human speaks this sentence, their vocal cords, pitch inflection, and stress are planned **holistically before the first syllable is voiced**:
-* The pitch rises on *"how"* and peaks on *"you"*.
-* The rhythm (*cadence*) flows smoothly because the vocal system anticipates the final vowel.
+You speak smoothly in one breath because your brain already knows the whole sentence before your mouth opens. Your pitch rises on *"how"* and naturally resolves on *"today?"*.
 
-Now imagine words are revealed to you one by one through a tiny slit in a piece of paper:
-1. You see: `"Hello"` $\rightarrow$ You pronounce it with flat, uncertain intonation.
+### What Happens if Words are Masked
+Now imagine someone covers your eyes and only reveals one word at a time:
+1. You see: `"Hello"` $\rightarrow$ You say `"Hello"`.
 2. You see: `"how"` $\rightarrow$ Pause.
 3. You see: `"are"` $\rightarrow$ Pause.
-4. You see: `"you"` $\rightarrow$ You don't know if it's a question or a statement until you see `"today?"`.
+4. You see: `"you"` $\rightarrow$ Is it a question or a statement? You don't know until `"today?"` appears!
 
-> [!CAUTION]
-> **Why Token-Level TTS Fails:**
-> Modern Neural TTS models (ElevenLabs, Cartesia, OpenAI TTS) rely on surrounding linguistic context to calculate pitch curves, stress markers, and pause durations. If you feed 1-2 words into a TTS engine, it produces flat, robotic, disjointed audio with unnatural rising and falling inflections.
+> **The Problem**: TTS models need surrounding context to know the correct **pronunciation, cadence, and pitch**. If you feed 1 or 2 tokens to TTS, it sounds flat, robotic, and unnatural.
 
-### The Sentence & Clause Chunking Solution
-
-Instead of streaming token by token, we buffer incoming tokens and slice them at **sentence and clause boundaries**:
+### The Solution: Sentence-Level Chunking
+Instead of streaming token-by-token, stream by **sentence boundaries**:
+* Accumulate tokens in a small buffer.
+* When you hit a delimiter (`.`, `?`, `!`, or a strong comma `,`), slice off that complete sentence.
+* Send that complete sentence to TTS immediately.
 
 ```javascript
-// Boundary delimiters: periods, question marks, exclamation marks, or commas with sufficient length
-const SENTENCE_REGEX = /([.?!]+(?:\s+|$)|,\s+(?=[A-Z0-9]))/;
+function takeSentences(text) {
+  const sentences = [];
+  let rest = text;
+
+  while (true) {
+    // Look for sentence-ending punctuation followed by space or end of string
+    const match = rest.match(/[.?!](?:\s+|$)/);
+    if (!match) break;
+
+    const end = match.index + match[0].length;
+    const sentence = rest.slice(0, end).trim();
+    rest = rest.slice(end);
+
+    if (sentence) sentences.push(sentence);
+  }
+
+  return { sentences, rest };
+}
 ```
 
-```
-LLM Output Stream:
-"Hello there! [DELIMITER 1] Today we are going to explore [WAITING] how voice agents work. [DELIMITER 2]"
-
-Buffer State:
-┌───────────────────────────────┐
-│ "Hello there!"                │ ──► Dispatched immediately to TTS (Turnaround: ~250ms)
-└───────────────────────────────┘
-┌───────────────────────────────┐
-│ "Today we are going to explore│ ──► Continues accumulating until punctuation detected...
-│  how voice agents work."      │ ──► Dispatched to TTS as Chunk 2
-└───────────────────────────────┘
-```
-
-This guarantees:
-1. **Natural Intonation**: The TTS model receives full semantic clauses, preserving human-grade cadence and prosody.
-2. **Optimal Latency**: Chunk 1 begins playing through the speaker *while* the LLM is still generating Chunk 2 and Chunk 3.
+Now the flow is smooth:
+1. The LLM streams: `"Hello there! How can I help you today?"`
+2. Chunk 1 (`"Hello there!"`) is completed in ~200ms and immediately starts speaking.
+3. While Chunk 1 is being spoken, Chunk 2 (`"How can I help you today?"`) finishes generating and queues up right behind it.
+4. The user hears speech almost instantly, with completely natural human pronunciation!
 
 ---
 
-## 🗄️ 6. Audio Scheduling & In-Memory Queue Architecture
+## 🛑 6. Interruption Management & The 4-Step Barge-In
 
-To deliver continuous, gapless playback without stuttering, we build a sequential audio queue with **session tracking**:
+Now suppose the agent starts speaking:
+> *"The weather in Bangalore today is pleasant with a temperature of 24 degrees and a chance of..."*
 
-```
-                  ┌─────────────────────────────────────────────────────────┐
-                  │                 AUDIO QUEUE STATE MACHINE               │
-                  └─────────────────────────────────────────────────────────┘
+In the middle of that sentence, the user interjects:
+> *"Wait, what about Delhi?"*
 
-     LLM Sentence         TTS Synthesis                 Audio Queue                    Speaker
-      Yielded               Returns Blob             (FIFO ArrayBuffer)               Playback
-         │                       │                           │                           │
-         ▼                       ▼                           ▼                           ▼
-   ┌───────────┐           ┌───────────┐             ┌───────────────┐             ┌───────────┐
-   │ Chunk 1   │ ────────► │ AudioBlob │ ──────────► │ [Blob 1,      │ ──────────► │ Playing   │
-   │ "Hello!"  │           │           │             │  Blob 2,      │             │ Chunk 1   │
-   └───────────┘           └───────────┘             │  Blob 3]      │             └─────┬─────┘
-                                                     └───────────────┘                   │
-                                                             ▲                           │ onended
-                                                             │                           ▼
-                                                             └───────────────── Next Item in Queue
-```
-
-### The Web Audio API vs. HTML5 Audio Element
-
-In production browser applications, relying on `<audio>` tags causes audible micro-gaps (10–50ms) between sentences due to decoder initialization. High-end systems utilize the **Web Audio API** (`AudioContext` and `AudioBufferSourceNode`) or an `AudioWorklet`:
-
-* **`AudioContext`**: Schedules audio buffers directly onto the audio hardware clock (`audioCtx.currentTime`), enabling sample-accurate, zero-gap concatenation.
-* **`AudioWorklet`**: Runs audio processing on a dedicated, low-latency background audio thread separate from the main JavaScript UI event loop.
-
----
-
-## 🛑 7. Interruption Management & Barge-In (The 4-Step Teardown)
-
-In human communication, an interruption is not an error; it is a fundamental coordination mechanism. When a human interrupts, the speaker **instantly stops talking, discards their remaining train of thought, and shifts attention to the listener**.
-
-If your voice agent does not implement **Barge-in**, it feels like a broken IVR phone system.
-
-### The Problem With Naive Queuing During Interruption
-
-If the agent has pre-buffered 3 sentences into the audio queue and the user speaks, simply clearing the microphone does nothing: the audio queue will continue playing the remaining pre-buffered chunks for the next 10 seconds!
+What happens in a naive queue?
+* The queue already holds 3 more sentence chunks waiting to play.
+* The LLM is still streaming Bangalore data.
+* If you don't clear the queue, the agent will finish the entire paragraph about Bangalore before it ever addresses Delhi!
 
 ### The 4-Step Barge-In Teardown Protocol
 
-When speech activity is detected while the agent is speaking:
+Whenever the user starts to speak while the agent is talking:
 
 ```
-                                  USER STARTS SPEAKING!
-                                            │
-                                            ▼
-                    ┌───────────────────────────────────────────────┐
-                    │       4-STEP BARGE-IN TEARDOWN PROTOCOL       │
-                    └───────────────────────────────────────────────┘
-                                            │
-             ┌──────────────────────────────┼──────────────────────────────┐
-             ▼                              ▼                              ▼
-      [ STEP 1 ]:                    [ STEP 2 ]:                    [ STEP 3 ]:
-   ABORT LLM STREAM               PURGE AUDIO QUEUE              STOP ACTIVE AUDIO
-  AbortController.abort()        audioQueue.length = 0          currentAudio.pause()
-  Terminates in-flight HTTP      Discards all pending           currentAudio.currentTime = 0
-  token generation on server     synthesized sentence chunks    Silences speaker in <20ms
-                                            │
-                                            ▼
-                                     [ STEP 4 ]:
-                             INCREMENT PLAYBACK SESSION
-                                playbackSession++
-                    Invalidates any late-arriving async network
-                    packets from previous turns
+                           USER STARTS SPEAKING
+                                     │
+             ┌───────────────────────┼───────────────────────┐
+             ▼                       ▼                       ▼
+       [ STEP 1 ]               [ STEP 2 ]              [ STEP 3 ]
+    ABORT LLM STREAM         PURGE AUDIO QUEUE       STOP ACTIVE AUDIO
+  abortController.abort()   audioQueue.length = 0    currentAudio.pause()
+  Stops LLM from generating Discards pending         Silences speaker
+  more text                 sentences in buffer      immediately
+                                     │
+                                     ▼
+                                [ STEP 4 ]
+                         INCREMENT SESSION TOKEN
+                           playbackSession++
+             Discards any pending async network responses
 ```
 
 ```javascript
-// State container for turn management
 const state = {
   currentAudioObj: null,
   audioQueue: [],
   isPlaying: false,
-  playbackSession: 0, // Incremented on every interruption to invalidate stale callbacks
-  abortController: null, // Cancels in-flight LLM network requests
+  playbackSession: 0,
+  abortController: null,
 };
 
-function interruptAndBargeIn() {
-  console.log('⚡ Barge-in detected! Halting agent output immediately.');
-
-  // 1. Invalidate ongoing playback session
+function triggerBargeIn() {
+  // 1. Invalidate ongoing turn
   state.playbackSession++;
 
-  // 2. Abort in-flight LLM streaming fetch
+  // 2. Abort in-flight LLM stream fetch
   if (state.abortController) {
     state.abortController.abort();
     state.abortController = null;
   }
 
-  // 3. Immediately halt physical speaker output
+  // 3. Stop active speaker sound instantly
   if (state.currentAudioObj) {
     state.currentAudioObj.pause();
     state.currentAudioObj.currentTime = 0;
     state.currentAudioObj = null;
   }
 
-  // 4. Purge in-memory audio queue
+  // 4. Clear buffered audio queue
   state.audioQueue = [];
   state.isPlaying = false;
 }
@@ -437,161 +316,112 @@ function interruptAndBargeIn() {
 
 ---
 
-## 🔊 8. VAD (Voice Activity Detection) vs. STT Completion: Eliminating Deadlocks
+## 🔊 7. VAD (Voice Activity Detection) vs. Waiting for STT
 
-In the naive cohort screenshot, interruption fails due to a architectural flaw:
+In the naive prototype, we used:
 ```javascript
 speechRecognition.interimResults = false;
 speechRecognition.onresult = async function(event) { ... }
 ```
 
-When `interimResults = false`, the browser's speech recognition engine **only emits an event AFTER the user has stopped speaking and a trailing silence duration (700–1000ms) has elapsed**.
+### The Flaw
+The browser's STT only triggers `onresult` **after you stop speaking** and pause for almost a second.
+* If you speak a long sentence to interrupt the agent, the agent keeps rambling over you until you finish!
+* You cannot wait for transcription to interrupt. You must interrupt **the exact millisecond your voice begins**.
+
+### The Solution: Real-Time Audio Energy (RMS)
+When you speak, the microphone sound wave energy (amplitude) spikes. We can monitor this directly using the browser's Web Audio API:
 
 ```
- Agent Speaking:   "The weather in San Francisco today is sunny with a high of seventy..."
- User Interjects:  "Wait, what about New York?"
- Naive Engine:     [ Agent keeps talking over the user for 4 more seconds! ]
-                   [ Only when user finishes "New York?" does onresult fire! ]
- Result:           Unbearable acoustic collision.
+Microphone Stream ──► AnalyserNode ──► Calculate Energy (RMS) every 20ms
+                                              │
+                      ┌───────────────────────┴───────────────────────┐
+                      ▼                                               ▼
+            RMS > Energy Threshold                          RMS <= Threshold
+            User is speaking!                               Silence / Room noise
+                      │                                               │
+                      ▼                                               ▼
+              TRIGGER BARGE-IN!                                Do nothing
 ```
-
-### The Solution: Real-Time Audio Energy / VAD Analysis
-
-We cannot wait for transcription to detect interruption. We must detect **sound energy** at the microphone hardware layer in real-time.
-
-```
-Microphone Stream ──► Web Audio API AnalyserNode ──► Calculate RMS Energy Every 20ms
-                                                            │
-                                  ┌─────────────────────────┴─────────────────────────┐
-                                  ▼                                                   ▼
-                       RMS > Energy Threshold (0.08)                       RMS <= Energy Threshold
-                       Consecutive Frames >= 5                             Silence / Low Ambience
-                                  │                                                   │
-                                  ▼                                                   ▼
-                         TRIGGER BARGE-IN!                                     Ignore / Continue
-```
-
-### RMS (Root Mean Square) Audio Energy Calculation
-
-The energy of an audio buffer of $N$ samples is calculated as:
-
-$$\text{RMS} = \sqrt{\frac{1}{N} \sum_{i=0}^{N-1} x[i]^2}$$
-
-Where $x[i]$ represents the normalized float sample value $[-1.0, 1.0]$.
 
 ```javascript
-/**
- * Realtime Client-Side Voice Activity Monitor using Web Audio API
- */
-function setupAudioEnergyVAD(mediaStream, onBargeInTriggered) {
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const sourceNode = audioContext.createMediaStreamSource(mediaStream);
-  const analyserNode = audioContext.createAnalyser();
-  analyserNode.fftSize = 512;
+// Calculates Root Mean Square (RMS) volume from microphone
+function monitorMicEnergy(mediaStream) {
+  const audioContext = new AudioContext();
+  const source = audioContext.createMediaStreamSource(mediaStream);
+  const analyser = audioContext.createAnalyser();
+  analyser.fftSize = 256;
+  source.connect(analyser);
 
-  sourceNode.connect(analyserNode);
+  const buffer = new Float32Array(analyser.fftSize);
+  const RMS_THRESHOLD = 0.08;
+  let consecutiveFrames = 0;
 
-  const buffer = new Float32Array(analyserNode.fftSize);
-  const RMS_THRESHOLD = 0.08; // Sensitivity threshold for speech
-  let consecutiveSpeechFrames = 0;
-  const REQUIRED_FRAMES = 4; // Require 4 consecutive frames (approx 80ms) to filter clicks/pops
+  function loop() {
+    analyser.getFloatTimeDomainData(buffer);
 
-  function monitorAudioFrames() {
-    analyserNode.getFloatTimeDomainData(buffer);
-
-    // Compute Root Mean Square (RMS)
-    let sumOfSquares = 0;
+    let sum = 0;
     for (let i = 0; i < buffer.length; i++) {
-      sumOfSquares += buffer[i] * buffer[i];
+      sum += buffer[i] * buffer[i];
     }
-    const rms = Math.sqrt(sumOfSquares / buffer.length);
+    const rms = Math.sqrt(sum / buffer.length);
 
-    // Check if energy crosses speech threshold while the agent is currently speaking
+    // If voice energy spikes while the agent is speaking: INTERRUPT!
     if (rms > RMS_THRESHOLD && state.isPlaying) {
-      consecutiveSpeechFrames++;
-      if (consecutiveSpeechFrames >= REQUIRED_FRAMES) {
-        onBargeInTriggered();
-        consecutiveSpeechFrames = 0;
+      consecutiveFrames++;
+      if (consecutiveFrames >= 4) { // Filter out micro-clicks / coughs
+        triggerBargeIn();
+        consecutiveFrames = 0;
       }
     } else {
-      consecutiveSpeechFrames = 0;
+      consecutiveFrames = 0;
     }
 
-    requestAnimationFrame(monitorAudioFrames);
+    requestAnimationFrame(loop);
   }
 
-  monitorAudioFrames();
+  loop();
 }
 ```
 
 ---
 
-## 🧠 9. Human Conversational Psychology & Smart Turn-Taking
+## 🧠 8. Human Conversational Psychology & Smart Turn-Taking
 
-Real human interaction is governed by subtle psychological cues:
+Real conversation is not just code; it involves human psychology:
 
-### A. The Backchanneling Dilemma (*"Hmm"*, *"Yeah"*, *"Uh-huh"*)
-
-If an agent interrupts itself every single time the microphone energy spikes above zero, the system becomes unusable. When humans listen, they continuously emit **backchannels**:
-* *"Uh-huh"*
-* *"Right"*
-* *"Yeah"*
+### A. The "Hmm / Uh-huh" Problem (Backchanneling)
+When humans talk, the listener constantly says small things:
 * *"Hmm"*
+* *"Yeah"*
+* *"Uh-huh"*
+* *"Okay"*
 
-These sounds are not requests to take the floor; they are **acknowledgments of comprehension** signaling the speaker to *continue*.
+If your agent treats every sound as an interruption and stops talking every time someone says *"hmm"*, the agent becomes unusable!
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                               BACKCHANNELING vs. FLOOR TAKEOVER                                  │
-├────────────────────────────────┬─────────────────────────────────────────────────────────────────┤
-│ Signal Property                │ Backchanneling ("Uh-huh")       │ Floor Takeover ("Wait, stop!") │
-├────────────────────────────────┼─────────────────────────────────┼───────────────────────────────┤
-│ **Duration**                   │ Transient (< 250ms)             │ Sustained (> 600ms)           │
-│ **Pitch Contour**              │ Flat or falling                 │ Dynamic, rising, assertive    │
-│ **Intent**                     │ Passive listening confirmation   │ Active semantic shift         │
-│ **Agent Action**               │ Continue speaking uninterrupted │ Instantly yield floor         │
-└────────────────────────────────┴─────────────────────────────────┴───────────────────────────────┘
-```
+| Behavior | Duration | What It Means | Agent Action |
+| :--- | :--- | :--- | :--- |
+| **Backchanneling** | Short (< 250ms), quiet | *"I am listening, keep going."* | Continue speaking. |
+| **Interruption** | Sustained (> 600ms), louder | *"Stop, I want to say something."* | Stop immediately and yield floor. |
 
-### B. Information Priority & Graceful Recovery
+### B. Information Priority & Recovery
+What if the agent was in the middle of saying something critical when interrupted?
+* Example: *"Your verification code is 9, 4... [User interrupts: 'Wait, slow down!']"*
+* A naive agent forgets the verification code and starts a completely new conversation.
+* A human-like agent stops, acknowledges the user, and then **recovers the critical context**:
+  > *"No problem! Let me repeat that code for you: 9, 4, 2, 1."*
 
-What happens when the agent was delivering critical information (e.g., flight numbers, medical warnings, credit card confirmations) when the user interrupted?
-* **Naive Agent**: Drops the information permanently.
-* **Human-like Agent**: Yields immediately, answers the interruption, and then uses conversational state memory to gracefully loop back:
-  > *"Sure, I can change that flight. But just to make sure you have it, the confirmation code for your original booking was 9X2B."*
-
-### C. The Conversational State Machine
-
-```mermaid
-stateDiagram-v2
-    [*] --> Idle: App Loaded
-    Idle --> Listening: User Starts Speaking
-    Listening --> Processing: Silence Detected (VAD End of Turn)
-    Processing --> StreamingAgentResponse: LLM Generates First Sentence
-    
-    state StreamingAgentResponse {
-        [*] --> SynthesizingAudio
-        SynthesizingAudio --> PlayingAudioChunk
-        PlayingAudioChunk --> SynthesizingAudio: Next Sentence
-    }
-
-    StreamingAgentResponse --> Idle: Playback Complete (Normal Handover)
-    StreamingAgentResponse --> BargeInAbort: User Speech Detected (RMS > Threshold)
-    
-    state BargeInAbort {
-        [*] --> FlushQueue
-        FlushQueue --> AbortLLMFetch
-        AbortLLMFetch --> SilenceSpeaker
-    }
-
-    BargeInAbort --> Listening: Yield Floor to User
-```
+### C. Smart Turn-Taking ("Kab Kisko Bolna Hai")
+Human conversation relies on subtle subconscious cues:
+* A pause in the middle of a sentence (e.g., *"I was thinking... maybe we can..."*) is **not** the end of a turn.
+* A finished thought with a downward pitch is the signal for the other person to speak.
+* Smart agents use silence duration counters (e.g., 500ms–700ms of silence) to decide when the user has actually finished their turn.
 
 ---
 
-## 💻 10. Complete Production Implementation: The Resilient Chained Pipeline
+## 💻 9. Complete Working Implementation: The Resilient Voice Agent
 
-Below is the complete, modular, battle-tested codebase implementing sentence-buffered streaming, in-memory audio queuing, Web Audio API energy monitoring, and 4-step barge-in teardown (reflecting the exact patterns from `piyushgarg-dev/stt-tts-pipeline-cohort`):
+Here is the complete, modular HTML & JavaScript code putting all these concepts together:
 
 ### `index.html`
 
@@ -600,143 +430,68 @@ Below is the complete, modular, battle-tested codebase implementing sentence-buf
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Realtime Voice Agent — Production STT-TTS Pipeline</title>
+  <title>Realtime Voice Agent</title>
   <style>
-    :root {
-      --bg: #0a0a0c;
-      --card: #141418;
-      --border: #26262e;
-      --accent: #6366f1;
-      --text: #f3f4f6;
-      --muted: #9ca3af;
-    }
     body {
-      margin: 0;
-      padding: 2rem;
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      box-sizing: border-box;
+      margin: 0;
     }
-    .container {
-      width: 100%;
-      max-width: 640px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 2rem;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    .box {
+      width: 480px;
+      padding: 24px;
+      background: #1e1e1e;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     }
-    h1 {
-      margin-top: 0;
-      font-size: 1.5rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+    #status {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 16px;
     }
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 9999px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      background: #27272a;
-      color: var(--muted);
-      margin-bottom: 1.5rem;
-    }
-    .status-badge.active {
-      background: rgba(34, 197, 94, 0.15);
-      color: #4ade80;
-    }
-    .indicator-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: currentColor;
-    }
-    .transcript-box {
-      min-height: 180px;
-      max-height: 320px;
+    #chat {
+      height: 220px;
       overflow-y: auto;
-      border: 1px solid var(--border);
+      border: 1px solid #333;
+      padding: 12px;
       border-radius: 8px;
-      padding: 1rem;
-      background: rgba(0, 0, 0, 0.2);
+      background: #181818;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
-      font-size: 0.95rem;
-      margin-bottom: 1.5rem;
+      gap: 8px;
     }
-    .msg {
-      padding: 8px 12px;
-      border-radius: 8px;
-      line-height: 1.4;
-      max-width: 85%;
-    }
-    .msg.user {
-      align-self: flex-end;
-      background: var(--accent);
-      color: #fff;
-    }
-    .msg.agent {
-      align-self: flex-start;
-      background: #22222a;
-      border: 1px solid var(--border);
-      color: var(--text);
-    }
-    .controls {
-      display: flex;
-      gap: 1rem;
-    }
+    .msg { padding: 6px 10px; border-radius: 6px; font-size: 14px; max-width: 80%; }
+    .msg.user { align-self: flex-end; background: #2563eb; color: #fff; }
+    .msg.agent { align-self: flex-start; background: #2e2e2e; color: #eee; }
     button {
-      flex: 1;
-      padding: 12px 20px;
-      border-radius: 8px;
+      margin-top: 16px;
+      width: 100%;
+      padding: 12px;
       border: none;
-      font-weight: 600;
+      border-radius: 8px;
+      background: #2563eb;
+      color: #fff;
+      font-weight: bold;
       cursor: pointer;
-      transition: all 0.2s ease;
-      background: var(--accent);
-      color: white;
     }
-    button:hover {
-      opacity: 0.9;
-    }
-    button:disabled {
-      background: #27272a;
-      color: #52525b;
-      cursor: not-allowed;
-    }
+    button:disabled { background: #444; cursor: not-allowed; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🎙️ Realtime Voice Agent</h1>
-    <div id="statusBadge" class="status-badge">
-      <div class="indicator-dot"></div>
-      <span id="statusText">System Idle</span>
+  <div class="box">
+    <h2>🎙️ Realtime Voice Agent</h2>
+    <div id="status">Status: Idle</div>
+    <div id="chat">
+      <div class="msg agent">Click start and talk naturally. You can interrupt me anytime!</div>
     </div>
-
-    <div id="transcriptBox" class="transcript-box">
-      <div class="msg agent">Hello! Click "Start Voice Agent" and speak naturally. You can interrupt me at any time.</div>
-    </div>
-
-    <div class="controls">
-      <button id="startBtn">Start Voice Agent</button>
-      <button id="stopBtn" disabled>Stop Agent</button>
-    </div>
+    <button id="startBtn">Start Voice Agent</button>
   </div>
-
   <script src="script.js"></script>
 </body>
 </html>
@@ -745,115 +500,76 @@ Below is the complete, modular, battle-tested codebase implementing sentence-buf
 ### `script.js`
 
 ```javascript
-/**
- * ============================================================================
- * Production Realtime Voice Pipeline: STT ➔ Streamed LLM ➔ Queued TTS + Barge-in
- * Repository Reference: https://github.com/piyushgarg-dev/stt-tts-pipeline-cohort
- * ============================================================================
- */
+const API_KEY = 'YOUR_OPENAI_API_KEY';
 
-const CONFIG = {
-  OPENAI_API_KEY: 'YOUR_OPENAI_API_KEY', // Recommended: Proxy through your backend server in production
-  LLM_MODEL: 'gpt-4o-mini',
-  TTS_MODEL: 'tts-1',
-  TTS_VOICE: 'coral',
-  BARGE_IN_RMS_THRESHOLD: 0.08,
-  CONSECUTIVE_FRAMES_REQUIRED: 4,
-};
-
-// Global Agent State Container
 const state = {
   currentAudioObj: null,
   audioQueue: [],
   isPlaying: false,
   playbackSession: 0,
   abortController: null,
-  isSessionActive: false,
+  isActive: false,
 };
 
-// UI Element Handles
-const statusBadge = document.getElementById('statusBadge');
-const statusText = document.getElementById('statusText');
-const transcriptBox = document.getElementById('transcriptBox');
+const statusEl = document.getElementById('status');
+const chatEl = document.getElementById('chat');
 const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
 
-function setStatus(text, isActive = false) {
-  statusText.textContent = text;
-  if (isActive) {
-    statusBadge.classList.add('active');
-  } else {
-    statusBadge.classList.remove('active');
-  }
+function setStatus(text) {
+  statusEl.textContent = `Status: ${text}`;
 }
 
-function appendMessage(role, text) {
-  const msgDiv = document.createElement('div');
-  msgDiv.className = `msg ${role}`;
-  msgDiv.textContent = text;
-  transcriptBox.appendChild(msgDiv);
-  transcriptBox.scrollTop = transcriptBox.scrollHeight;
-  return msgDiv;
+function addMsg(role, text) {
+  const d = document.createElement('div');
+  d.className = `msg ${role}`;
+  d.textContent = text;
+  chatEl.appendChild(d);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return d;
 }
 
-// ============================================================================
-// 1. BARGE-IN INTERRUPTION HANDLER
-// ============================================================================
+// 1. Interruption Handler
 function triggerBargeIn() {
   if (!state.isPlaying && state.audioQueue.length === 0) return;
 
-  console.warn('⚡ [Barge-in] User interruption detected! Draining audio pipeline.');
-  setStatus('User Interrupted Agent...', true);
-
-  // Invalidate any async tasks tied to this generation turn
+  console.log('⚡ Interrupted by user!');
+  setStatus('Interrupted by user...');
   state.playbackSession++;
 
-  // 1. Abort in-flight network streaming fetch
   if (state.abortController) {
     state.abortController.abort();
     state.abortController = null;
   }
 
-  // 2. Immediately stop active speaker audio
   if (state.currentAudioObj) {
     state.currentAudioObj.pause();
     state.currentAudioObj.currentTime = 0;
     state.currentAudioObj = null;
   }
 
-  // 3. Purge audio queue
   state.audioQueue = [];
   state.isPlaying = false;
 }
 
-// ============================================================================
-// 2. SENTENCE CHUNKING GENERATOR FOR LLM STREAM
-// ============================================================================
+// 2. Sentence Extractor
 function takeSentences(text) {
   const sentences = [];
   let rest = text;
 
   while (true) {
-    // Delimit on period, question mark, or exclamation mark followed by whitespace or end
     const match = rest.match(/[.?!](?:\s+|$)/);
     if (!match) break;
-
-    const endIndex = match.index + match[0].length;
-    const sentence = rest.slice(0, endIndex).trim();
-    rest = rest.slice(endIndex);
-
-    if (sentence) {
-      sentences.push(sentence);
-    }
+    const end = match.index + match[0].length;
+    const sentence = rest.slice(0, end).trim();
+    rest = rest.slice(end);
+    if (sentence) sentences.push(sentence);
   }
 
   return { sentences, rest };
 }
 
-/**
- * Async generator that consumes the LLM stream and yields full, natural sentences
- */
-async function* llmStreaming(userQuery, currentSession) {
+// 3. Streaming LLM Generator
+async function* streamLLMSentences(userQuery, session) {
   state.abortController = new AbortController();
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -861,19 +577,15 @@ async function* llmStreaming(userQuery, currentSession) {
     signal: state.abortController.signal,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${CONFIG.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${API_KEY}`,
     },
     body: JSON.stringify({
-      model: CONFIG.LLM_MODEL,
+      model: 'gpt-4o-mini',
       stream: true,
       messages: [
         {
           role: 'system',
-          content: `You are an ultra-fast, conversational voice assistant.
-          Rules:
-          1. Answer concisely in natural spoken English (1-3 sentences maximum).
-          2. Structure output in clear, complete sentences so they can be spoken immediately.
-          3. Avoid markdown asterisks, bullet points, or code blocks.`,
+          content: 'You are a warm, concise voice assistant. Respond in 1-2 spoken sentences.',
         },
         { role: 'user', content: userQuery },
       ],
@@ -882,480 +594,316 @@ async function* llmStreaming(userQuery, currentSession) {
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let rawBuffer = '';
+  let buffer = '';
   let sentenceAccumulator = '';
 
   while (true) {
-    // Exit if session was invalidated by barge-in
-    if (state.playbackSession !== currentSession) break;
-
+    if (state.playbackSession !== session) break;
     const { value, done } = await reader.read();
     if (done) break;
 
-    rawBuffer += decoder.decode(value, { stream: true });
-    const lines = rawBuffer.split('\n');
-    rawBuffer = lines.pop() ?? '';
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed || trimmed === 'data: [DONE]') continue;
-      if (!trimmed.startsWith('data: ')) continue;
+      if (!trimmed || trimmed === 'data: [DONE]' || !trimmed.startsWith('data: ')) continue;
 
       try {
         const json = JSON.parse(trimmed.slice(6));
         const delta = json.choices?.[0]?.delta?.content ?? '';
-        if (!delta) continue;
-
         sentenceAccumulator += delta;
 
-        // Extract complete sentences from the accumulator
         const { sentences, rest } = takeSentences(sentenceAccumulator);
         sentenceAccumulator = rest;
 
-        for (const sentence of sentences) {
-          if (state.playbackSession !== currentSession) return;
-          yield sentence;
+        for (const s of sentences) {
+          if (state.playbackSession !== session) return;
+          yield s;
         }
-      } catch (err) {
-        // Skip malformed SSE chunks
-      }
+      } catch (e) {}
     }
   }
 
-  // Yield any trailing leftover text without punctuation
   const leftover = sentenceAccumulator.trim();
-  if (leftover && state.playbackSession === currentSession) {
+  if (leftover && state.playbackSession === session) {
     yield leftover;
   }
 }
 
-// ============================================================================
-// 3. TTS SYNTHESIZER & SEQUENTIAL AUDIO QUEUE WORKER
-// ============================================================================
-async function fetchTTSAudioBlob(text, currentSession) {
-  if (state.playbackSession !== currentSession) return null;
+// 4. TTS Fetcher
+async function fetchTTSBlob(text, session) {
+  if (state.playbackSession !== session) return null;
 
-  const response = await fetch('https://api.openai.com/v1/audio/speech', {
+  const res = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${CONFIG.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${API_KEY}`,
     },
     body: JSON.stringify({
-      model: CONFIG.TTS_MODEL,
-      voice: CONFIG.TTS_VOICE,
+      model: 'tts-1',
+      voice: 'coral',
       input: text,
-      response_format: 'mp3',
     }),
   });
 
-  if (state.playbackSession !== currentSession) return null;
-  return await response.blob();
+  if (state.playbackSession !== session) return null;
+  return await res.blob();
 }
 
-/**
- * Sequential Audio Queue Consumer
- */
-async function processAudioQueue(currentSession) {
-  if (state.isPlaying) return;
-  if (state.audioQueue.length === 0) return;
-
+// 5. In-Memory Sequential Audio Queue Player
+async function playAudioQueue(session) {
+  if (state.isPlaying || state.audioQueue.length === 0) return;
   state.isPlaying = true;
-  setStatus('Agent Speaking...', true);
+  setStatus('Agent Speaking...');
 
   while (state.audioQueue.length > 0) {
-    if (state.playbackSession !== currentSession) {
-      console.log('[Queue] Session invalidated. Dropping remaining chunks.');
-      break;
-    }
+    if (state.playbackSession !== session) break;
 
-    const nextBlob = state.audioQueue.shift();
-    if (!nextBlob) continue;
+    const blob = state.audioQueue.shift();
+    if (!blob) continue;
 
-    const audioUrl = URL.createObjectURL(nextBlob);
-    const audio = new Audio(audioUrl);
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
     state.currentAudioObj = audio;
 
     await new Promise((resolve) => {
       audio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
+        URL.revokeObjectURL(url);
         state.currentAudioObj = null;
         resolve();
       };
       audio.onerror = () => {
-        URL.revokeObjectURL(audioUrl);
+        URL.revokeObjectURL(url);
         state.currentAudioObj = null;
         resolve();
       };
-
-      audio.play().catch((err) => {
-        console.warn('Audio playback error / interrupted:', err);
-        resolve();
-      });
+      audio.play().catch(resolve);
     });
   }
 
   state.isPlaying = false;
   state.currentAudioObj = null;
-  if (state.playbackSession === currentSession) {
-    setStatus('Listening...', true);
+  if (state.playbackSession === session) {
+    setStatus('Listening...');
   }
 }
 
-// ============================================================================
-// 4. MICROPHONE ENERGY VAD (HARDWARE BARGE-IN MONITOR)
-// ============================================================================
-function initVAD(mediaStream) {
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const sourceNode = audioContext.createMediaStreamSource(mediaStream);
-  const analyserNode = audioContext.createAnalyser();
-  analyserNode.fftSize = 256;
+// 6. Microphone Energy Monitor (VAD)
+function startVAD(stream) {
+  const ctx = new AudioContext();
+  const src = ctx.createMediaStreamSource(stream);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 256;
+  src.connect(analyser);
 
-  sourceNode.connect(analyserNode);
+  const data = new Float32Array(analyser.fftSize);
+  let frames = 0;
 
-  const buffer = new Float32Array(analyserNode.fftSize);
-  let consecutiveSpeechFrames = 0;
-
-  function checkEnergy() {
-    if (!state.isSessionActive) return;
-
-    analyserNode.getFloatTimeDomainData(buffer);
+  function check() {
+    if (!state.isActive) return;
+    analyser.getFloatTimeDomainData(data);
 
     let sum = 0;
-    for (let i = 0; i < buffer.length; i++) {
-      sum += buffer[i] * buffer[i];
-    }
-    const rms = Math.sqrt(sum / buffer.length);
+    for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+    const rms = Math.sqrt(sum / data.length);
 
-    // If microphone energy exceeds threshold while agent is speaking: TRIGGER BARGE-IN!
-    if (rms > CONFIG.BARGE_IN_RMS_THRESHOLD && state.isPlaying) {
-      consecutiveSpeechFrames++;
-      if (consecutiveSpeechFrames >= CONFIG.CONSECUTIVE_FRAMES_REQUIRED) {
+    if (rms > 0.08 && state.isPlaying) {
+      frames++;
+      if (frames >= 4) {
         triggerBargeIn();
-        consecutiveSpeechFrames = 0;
+        frames = 0;
       }
     } else {
-      consecutiveSpeechFrames = 0;
+      frames = 0;
     }
 
-    requestAnimationFrame(checkEnergy);
+    requestAnimationFrame(check);
   }
 
-  checkEnergy();
+  check();
 }
 
-// ============================================================================
-// 5. MAIN ORCHESTRATOR
-// ============================================================================
-async function startVoiceSession() {
+// 7. Main Entry
+async function start() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    alert('Web Speech API is not supported in this browser. Please use Chrome.');
-    return;
-  }
+  if (!SpeechRecognition) return alert('Use Chrome browser.');
 
-  // Request microphone stream for low-level energy VAD
-  const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  initVAD(mediaStream);
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  startVAD(stream);
 
   const recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = false;
-  recognition.lang = 'en-US';
 
   recognition.onstart = () => {
-    state.isSessionActive = true;
+    state.isActive = true;
     startBtn.disabled = true;
-    stopBtn.disabled = false;
-    setStatus('Listening... (Speak anytime)', true);
+    setStatus('Listening...');
   };
 
   recognition.onresult = async (event) => {
-    const transcript = event.results[event.results.length - 1][0].transcript.trim();
-    if (!transcript) return;
+    const text = event.results[event.results.length - 1][0].transcript.trim();
+    if (!text) return;
 
-    appendMessage('user', transcript);
-    setStatus('Agent Thinking...', true);
+    addMsg('user', text);
+    setStatus('Thinking...');
 
-    const currentSession = ++state.playbackSession;
-    let agentMessageElem = null;
+    const session = ++state.playbackSession;
+    let agentMsgEl = null;
 
     try {
-      // Stream LLM sentence chunks
-      for await (const sentence of llmStreaming(transcript, currentSession)) {
-        if (state.playbackSession !== currentSession) break;
+      for await (const sentence of streamLLMSentences(text, session)) {
+        if (state.playbackSession !== session) break;
 
-        if (!agentMessageElem) {
-          agentMessageElem = appendMessage('agent', sentence);
+        if (!agentMsgEl) {
+          agentMsgEl = addMsg('agent', sentence);
         } else {
-          agentMessageElem.textContent += ' ' + sentence;
+          agentMsgEl.textContent += ' ' + sentence;
         }
 
-        // Parallel synthesize audio for the sentence chunk
-        fetchTTSAudioBlob(sentence, currentSession).then((audioBlob) => {
-          if (!audioBlob || state.playbackSession !== currentSession) return;
-          state.audioQueue.push(audioBlob);
-          processAudioQueue(currentSession);
+        fetchTTSBlob(sentence, session).then((blob) => {
+          if (!blob || state.playbackSession !== session) return;
+          state.audioQueue.push(blob);
+          playAudioQueue(session);
         });
       }
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('LLM Pipeline Error:', err);
-      }
-    }
-  };
-
-  recognition.onerror = (event) => {
-    console.error('Speech Recognition Error:', event.error);
-    if (event.error === 'not-allowed') {
-      alert('Microphone access denied.');
-    }
-  };
-
-  recognition.onend = () => {
-    // Keep recognition continuously alive unless stopped manually
-    if (state.isSessionActive) {
-      recognition.start();
+      if (err.name !== 'AbortError') console.error(err);
     }
   };
 
   recognition.start();
-
-  stopBtn.onclick = () => {
-    state.isSessionActive = false;
-    recognition.stop();
-    triggerBargeIn();
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-    setStatus('System Idle', false);
-  };
 }
 
-startBtn.onclick = startVoiceSession;
+startBtn.onclick = start;
 ```
 
 ---
 
-## 🚀 11. The Modern Paradigm: Native Multimodal Voice (OpenAI Realtime API & SDK)
+## 🚀 10. Native Multimodal Voice: The OpenAI Realtime API
 
-While our optimized chained pipeline solves sentence buffering and barge-in, cascaded pipelines hit an architectural wall:
+Even with sentence streaming and queues, cascaded pipelines have a hard ceiling:
+1. **Lost Emotion**: Plain text cannot represent whispers, laughing, sarcasm, or accents.
+2. **Fixed Latency**: Transcribing audio into text and back into audio always takes at least 500ms–800ms.
 
-### The Fundamental Limitations of Chained Cascades
+### The New Solution: Direct Speech-to-Speech
+The **OpenAI Realtime API** (`gpt-4o-realtime-preview`) is a single multimodal model that takes **raw audio in** and generates **raw audio out** directly over **WebRTC**:
 
-1. **Acoustic Information Erasure**: When audio passes through STT, **all non-verbal data is permanently stripped away**. Emotion, sarcasm, whispered secrets, laughter, stuttering, and urgency are discarded. The LLM only sees plain text.
-2. **Double Latency Penalty**: Transcribing audio into text and re-synthesizing text into audio will always incur at least $400\text{ms} - 800\text{ms}$ of fixed mathematical overhead.
-3. **Complex State Synchronization**: Keeping client VAD, audio queues, and LLM abort controllers synchronized requires intricate application code.
+$$\text{User Mic} \xrightarrow{\quad\text{WebRTC}\quad} \fbox{ GPT-4o Realtime } \xrightarrow{\quad\text{WebRTC}\quad} \text{Speaker}$$
 
-### The Speech-to-Speech Breakthrough: OpenAI Realtime API
+### How to Build It (2 Files: Server + Client)
 
-The **OpenAI Realtime API** (`gpt-4o-realtime-preview`) is a **native multimodal speech-to-speech foundation model**. It ingests raw audio tokens and outputs raw audio tokens directly:
-
-$$\textbf{Audio In} \xrightarrow{\quad\text{Direct Neural Ingestion}\quad} \fbox{ GPT-4o Realtime } \xrightarrow{\quad\text{Direct Acoustic Synthesis}\quad} \textbf{Audio Out}$$
-
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                             NATIVE MULTIMODAL REALTIME ARCHITECTURE                              │
-└──────────────────────────────────────────────────────────────────────────────────────────────────┘
-
-                       CLIENT (Browser / Mobile / WebRTC)
-                       ├── Low-Latency Microphone Stream
-                       └── Hardware Speaker Output
-                                      │
-                     WebRTC PeerConnection / WebSocket
-                     (Full-Duplex, <300ms Glass-to-Glass)
-                                      │
-                                      ▼
-                      OPENAI REALTIME RUNTIME (Cloud)
-             ┌──────────────────────────────────────────────────┐
-             │ • Server-Side Acoustic VAD (Turn-Taking)         │
-             │ • GPT-4o Native Audio Encoder                    │
-             │ • Direct Audio-to-Audio Attention Transformer    │
-             │ • Native Prosody, Laughter, Emotion & Whisper    │
-             │ • Automatic Server-Side Barge-in Truncation      │
-             └──────────────────────────────────────────────────┘
-```
-
-### Key Capabilities of Native Realtime Voice:
-* **True Sub-300ms Latency**: Conversational response times identical to human-to-human phone calls.
-* **Acoustic Understanding**: You can whisper, and the model whispers back. You can laugh, and the model matches your affective tone.
-* **Native Tool Calling Over Voice**: The model can speak while querying an API in the background.
-* **Server-Side Turn-Taking & VAD**: The cloud automatically detects when you speak, interrupts itself, and emits an `input_audio_buffer.speech_started` event.
-
----
-
-### Implementing Realtime Voice With the OpenAI Agents SDK / WebRTC
-
-For browser and mobile clients, **WebRTC** is the gold standard transport because it runs over UDP with native jitter buffering and echo cancellation.
-
-#### 1. Server-Side Ephemeral Token Issuer (`server.js`)
-
-In production, never expose your master `OPENAI_API_KEY` on the client. Your backend mints a short-lived **ephemeral session token**:
-
+#### 1. Backend: Mint Ephemeral Token (`server.js`)
 ```javascript
 import express from 'express';
 import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-app.use(express.json());
 
-// Endpoint to mint ephemeral WebRTC session token
-app.post('/api/session', async (req, res) => {
-  try {
-    const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
+// Creates a short-lived token so API key stays hidden
+app.post('/session', async (req, res) => {
+  const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-realtime-preview-2024-12-17',
+      voice: 'coral',
+      modalities: ['audio', 'text'],
+      turn_detection: {
+        type: 'server_vad', // Server automatically handles turn-taking & barge-in!
+        threshold: 0.5,
+        silence_duration_ms: 500,
       },
-      body: JSON.stringify({
-        model: 'gpt-4o-realtime-preview-2024-12-17',
-        voice: 'coral',
-        modalities: ['audio', 'text'],
-        instructions: 'You are a warm, helpful customer support agent. Speak naturally and concisely.',
-        turn_detection: {
-          type: 'server_vad',
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 500, // Waits 500ms of silence before concluding turn
-        },
-      }),
-    });
+    }),
+  });
 
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('Session creation failed:', error);
-    res.status(500).json({ error: 'Failed to create realtime session' });
-  }
+  const data = await response.json();
+  res.json(data);
 });
 
 app.listen(3000, () => console.log('Server running on http://localhost:3000'));
 ```
 
-#### 2. Client-Side WebRTC Voice Agent (`client.js`)
-
-The client negotiates an SDP (Session Description Protocol) handshake with OpenAI and opens a direct media channel:
-
+#### 2. Frontend: WebRTC Realtime Agent (`client.js`)
 ```javascript
-/**
- * Production Browser WebRTC Client for OpenAI Realtime Voice
- */
-async function initRealtimeVoiceAgent() {
-  // 1. Fetch ephemeral session token from your backend server
-  const sessionResponse = await fetch('/api/session', { method: 'POST' });
-  const sessionData = await sessionResponse.json();
-  const EPHEMERAL_KEY = sessionData.client_secret.value;
+async function startRealtimeAgent() {
+  // 1. Get token from server
+  const sessionRes = await fetch('/session', { method: 'POST' });
+  const session = await sessionRes.json();
+  const token = session.client_secret.value;
 
-  // 2. Create local WebRTC PeerConnection
+  // 2. Setup WebRTC
   const pc = new RTCPeerConnection();
 
-  // 3. Connect incoming remote audio stream to a speaker <audio> element
-  const remoteAudioElem = document.createElement('audio');
-  remoteAudioElem.autoplay = true;
-  pc.ontrack = (event) => {
-    remoteAudioElem.srcObject = event.streams[0];
-  };
+  // Play audio when agent responds
+  const audio = document.createElement('audio');
+  audio.autoplay = true;
+  pc.ontrack = (e) => { audio.srcObject = e.streams[0]; };
 
-  // 4. Capture local user microphone and add track to PeerConnection
-  const localStream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-  });
-  pc.addTrack(localStream.getTracks()[0]);
+  // Add user microphone stream
+  const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+  pc.addTrack(mic.getTracks()[0]);
 
-  // 5. Open DataChannel for real-time events, tool calling, and text transcripts
-  const dataChannel = pc.createDataChannel('oai-events');
-
-  dataChannel.onmessage = (event) => {
-    const realtimeEvent = JSON.parse(event.data);
-    
-    // Server detects that the user began speaking: automatic barge-in!
-    if (realtimeEvent.type === 'input_audio_buffer.speech_started') {
-      console.log('⚡ Server VAD detected user speech. Agent interrupted.');
-    }
-
-    // Agent audio transcript delta
-    if (realtimeEvent.type === 'response.audio_transcript.delta') {
-      process.stdout?.write(realtimeEvent.delta);
+  // Data channel for text and status
+  const dc = pc.createDataChannel('oai-events');
+  dc.onmessage = (e) => {
+    const event = JSON.parse(e.data);
+    if (event.type === 'input_audio_buffer.speech_started') {
+      console.log('⚡ User interrupted the agent!');
     }
   };
 
-  // 6. WebRTC SDP Offer / Answer Exchange with OpenAI
+  // 3. Negotiate connection with OpenAI
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 
-  const baseUrl = 'https://api.openai.com/v1/realtime';
-  const model = 'gpt-4o-realtime-preview-2024-12-17';
-  
-  const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
-    method: 'POST',
-    body: offer.sdp,
-    headers: {
-      Authorization: `Bearer ${EPHEMERAL_KEY}`,
-      'Content-Type': 'application/sdp',
-    },
-  });
+  const sdpResponse = await fetch(
+    'https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
+    {
+      method: 'POST',
+      body: offer.sdp,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/sdp',
+      },
+    }
+  );
 
-  const answer = {
+  await pc.setRemoteDescription({
     type: 'answer',
     sdp: await sdpResponse.text(),
-  };
+  });
 
-  await pc.setRemoteDescription(answer);
-  console.log('🎉 Full-Duplex Realtime Voice Agent Connected via WebRTC!');
+  console.log('🎉 Connected! Realtime full-duplex voice active (<300ms latency).');
 }
 ```
 
 ---
 
-## ⚖️ 12. Architectural Decision Matrix: Chained vs. Native Multimodal
+## 📊 11. Comparison: Chained Pipeline vs. Native Realtime API
 
-When should an engineering team build a **Cascaded (Chained) STT-TTS Pipeline** versus adopting the **Native Realtime API**?
-
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                ARCHITECTURAL COMPARISON MATRIX                                   │
-├──────────────────────────┬─────────────────────────────────┬─────────────────────────────────────┤
-│ Architectural Dimension  │ Chained Pipeline (STT+LLM+TTS)  │ Native Multimodal (OpenAI Realtime) │
-├──────────────────────────┼─────────────────────────────────┼─────────────────────────────────────┤
-│ **Glass-to-Glass Latency**│ $800\text{ms} - 2,500\text{ms}$ │ $250\text{ms} - 450\text{ms}$       │
-│ **Affective Prosody**    │ Flat / Pre-programmed           │ Native (whispers, laughter, tone)   │
-│ **Interruption / Barge-in**│ Manual (Client RMS / VAD)      │ Native Server-Side VAD              │
-│ **Transport Protocol**   │ REST / HTTP Streaming           │ WebRTC (UDP) / WebSocket            │
-│ **Vendor Lock-in**       │ Zero (Swappable modules)        │ High (Proprietary OpenAI Model)     │
-│ **Cost Structure**       │ Low (~$0.01 - $0.03 / min)      │ Higher (~$0.06 - $0.24 / min)       │
-│ **Custom Voice Cloning** │ High (ElevenLabs / Coqui / XTTS)│ Restricted to built-in presets      │
-│ **Deterministic Guardrails**│ Easy (Sanitize text between STT)│ Difficult (Raw audio boundary)    │
-└──────────────────────────┴─────────────────────────────────┴─────────────────────────────────────┘
-```
-
-### Production Decision Rules:
-1. **Choose Native Realtime (WebRTC)** when:
-   * Low latency is non-negotiable (e.g., real-time conversational sales agents, roleplay coaching, executive assistants).
-   * Emotional nuance and natural human conversational pacing are core product differentiators.
-2. **Choose Chained Cascaded Pipeline** when:
-   * Cost optimization is primary (e.g., millions of automated customer survey calls).
-   * Strict regulatory compliance requires scanning the transcript with regex/guardrails **before** the LLM or TTS receives it.
-   * You require highly specialized custom enterprise cloned voices (e.g., ElevenLabs enterprise brand voice).
+| Feature | Chained Pipeline (STT + LLM + TTS) | Native Multimodal (OpenAI Realtime) |
+| :--- | :--- | :--- |
+| **Response Time** | 800ms – 2,000ms | **Sub-300ms** (Instant) |
+| **Emotion & Tone** | Flat / Pre-programmed | **Natural** (Whispers, laughter, sighs) |
+| **Interruption (Barge-in)** | You must build queue + RMS VAD yourself | **Built-in automatically on server** |
+| **Cost** | Cheap (~$0.01 – $0.03 / min) | Higher (~$0.06 – $0.20 / min) |
+| **Flexibility** | Swap any STT, LLM, or TTS provider | Locked into OpenAI Realtime model |
+| **Best Used For** | Cheap bulk calls, survey bots | High-end human-like conversational agents |
 
 ---
 
-## 📋 13. Summary & Mental Checklist for Realtime Voice Engineers
-
-When building or reviewing any conversational voice agent, run through this architectural checklist:
-
-- [ ] **Acoustic Serialization**: Is audio transferred in compact, low-overhead binary streams (PCM 16-bit / Opus) rather than base64 strings?
-- [ ] **Chunking Granularity**: Are LLM tokens accumulated into complete semantic clauses/sentences (`takeSentences`) before dispatching to TTS?
-- [ ] **Queue Decoupling**: Is there an in-memory sequential audio queue preventing overlapping audio tracks caused by LLM generation burstiness?
-- [ ] **4-Step Barge-In**: When speech energy is detected:
-  1. Abort LLM stream (`AbortController`).
-  2. Purge audio queue (`audioQueue = []`).
-  3. Stop active speaker output (`audio.pause()`).
-  4. Increment `playbackSession` counter.
-- [ ] **Pre-Speech VAD**: Is interruption triggered on real-time microphone energy (RMS) rather than waiting for speech transcription completion?
-- [ ] **Backchannel Filtering**: Does the system distinguish transient user acknowledgments (*"hmm"*, *"uh-huh"*) from deliberate topic interruptions?
-- [ ] **Memory Reclamation**: Are object URLs generated via `URL.createObjectURL(blob)` systematically revoked with `URL.revokeObjectURL()` inside `audio.onended`?
+## 📌 Summary Checklist
+1. **Audio is serializable**: It flows as continuous bytes.
+2. **Speed Mismatch**: LLMs produce words faster than human speech; you must use an **in-memory audio queue**.
+3. **Sentence Chunking**: Do not stream word-by-word; stream sentence-by-sentence so pronunciation and pitch stay natural.
+4. **Barge-In**: When interrupted, **abort LLM fetch + clear queue + stop speaker + bump session**.
+5. **Immediate VAD**: Interrupt on microphone wave energy (RMS), not on STT transcript completion.
+6. **Next Generation**: Native speech-to-speech (OpenAI Realtime API) removes chaining altogether for sub-300ms real conversation.
