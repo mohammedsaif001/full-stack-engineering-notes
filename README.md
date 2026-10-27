@@ -177,6 +177,10 @@ This repository serves as an all-in-one technical reference, architectural bluep
   - **Advanced RAG**: Query rewriting, HyDE (Hypothetical Document Embeddings), Reciprocal Rank Fusion (RRF), cross-encoder reranking, hierarchical chunking.
   - **Vectorless RAG**: Knowledge graphs, SQL/BM25 keyword search, hybrid dense-sparse retrieval.
   - **Agent Memory**: Ephemeral context, short-term buffer memory, long-term semantic memory, entity memory.
+- **Function Calling Deep Dive**: Tool schemas across OpenAI/Claude/Gemini, parallel calls, `tool_choice`, multi-turn tool loops, error handling, tool design & risk tiering.
+- **Agentic Patterns**: Workflows vs agents, prompt chaining/routing/orchestrator-workers, Plan-and-Execute, Reflection & grounded self-correction, checkpointed state persistence.
+- **Multi-Agent Systems**: Supervisor vs Swarm/Handoff vs Hierarchical topologies, shared state, MCP vs A2A, failure modes.
+- **LLMOps**: Evals (Ragas metrics, LLM-as-a-Judge, golden datasets, CI gates), observability (Langfuse, OpenTelemetry GenAI), OWASP LLM Top 10, red-teaming, prompt/semantic caching & cost control.
 - **Realtime Voice Agents**: Cascaded STT-TTS pipelines, sentence-boundary streaming buffers, in-memory audio queues, hardware RMS/VAD barge-in interruption management, conversational psychology, and native multimodal speech-to-speech with OpenAI Realtime WebRTC.
 
 ---

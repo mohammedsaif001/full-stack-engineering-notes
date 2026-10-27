@@ -311,6 +311,19 @@ This documentation series is structured into progressive, self-contained modules
 [10-Production-GenAI-System-Design-End-To-End]
 ```
 
+### 🗂️ Roadmap Stage → Actual Note Mapping
+
+| Roadmap stage | Notes in this folder |
+|---|---|
+| Foundations & Prompting | [01](01-LLM-Foundations-Tokens-Embeddings-Transformers.md), [02](02-Prompt-Engineering-And-Structured-Outputs.md), [03](03-Agentic-Terminology-Loops-Harness-Prompt-Engineering.md), [04](04-SDK-Deep-Dive-Multi-Model-Ensemble-And-Agent-SDKs.md) |
+| Vector DBs & Semantic Search | [06](06-Vector-Databases-Embeddings-Semantic-Search-And-Memory.md), [17](17-Qdrant-Vector-Database-Architecture-Setup-And-Hands-On.md), [18](18-Pinecone-Serverless-Vector-Database-Architecture-And-Setup.md), [20](20-Vector-Engines-Compared-Qdrant-vs-Pinecone-vs-FAISS.md) |
+| RAG & Advanced RAG | [07](07-Retrieval-Augmented-Generation-RAG.md), [08](08-Advanced-RAG-Patterns.md), [09](09-Vectorless-RAG.md), [11](11-Graph-Databases-Cypher-Queries-And-Knowledge-Graphs-In-LLMs.md) |
+| Function Calling & Tool Use | [22](22-Function-Calling-And-Tool-Use-Deep-Dive.md), [15](15-Model-Context-Protocol-MCP-Architecture-Transports-And-Gateways.md) |
+| Agentic Workflows & Memory | [23](23-Agentic-Workflows-And-Patterns-Planning-Reflection-Self-Correction.md), [10](10-Memory-In-AI-Agents.md), [13](13-Inngest-Durable-Execution-Workflows-And-AI-Agents.md), [14](14-Agent-SDK-Architecture-Harness-MCP-And-Guardrails.md) |
+| Multi-Agent & MCP | [24](24-Multi-Agent-Collaboration-Supervisor-vs-Swarm-MCP-And-A2A.md), [15](15-Model-Context-Protocol-MCP-Architecture-Transports-And-Gateways.md), [16](16-Claude-Skills-Architecture-Packaging-And-Skills-vs-MCP.md) |
+| Evaluation, Observability & Security | [25](25-Evaluation-Observability-And-LLMOps-Ragas-Langfuse-OpenTelemetry.md), [05](05-AI-Security-Prompt-Injection-Defensive-Wrappers-RBAC.md) |
+| Specialised: Voice, Open Models | [21](21-Realtime-Voice-Agents-STT-TTS-Pipelines-And-Turn-Taking.md), [12](12-Open-Weight-vs-Open-Source-vs-Closed-LLMs.md) |
+
 ---
 
 ## ❓ Self-Check & Mental Model Review
