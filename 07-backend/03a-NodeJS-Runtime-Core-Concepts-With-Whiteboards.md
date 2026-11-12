@@ -228,9 +228,178 @@ Node.js has three main parts:
 
 libuv hands **file-system** and **cryptography** work to the thread pool. If one file operation and one crypto operation are handed over, **two of the four threads are busy, and the main call stack is not blocked**. When they finish, those two threads become free again and are available for the next jobs.
 
+**Changing the pool size: `UV_THREADPOOL_SIZE`**
+
+- The default is **4 threads**. It can be changed with the **`UV_THREADPOOL_SIZE`** environment variable, up to a maximum of **1024**.
+- It must be set **before the process starts** (before the pool is first used), because the pool is created once and its size cannot change afterwards.
+
+```bash
+# Linux / macOS
+UV_THREADPOOL_SIZE=16 node app.js
+
+# Windows PowerShell
+$env:UV_THREADPOOL_SIZE = 16; node app.js
+```
+
+- If more than 4 file/crypto jobs arrive at once, the extra jobs **wait in a queue** until a thread is free. Raising the size removes that waiting.
+
 ### 4.3 Is Node.js single-threaded or multi-threaded?
 
 It depends on the context:
 
 - **Synchronous code:** single-threaded. The V8 engine runs everything on one call stack.
 - **Asynchronous operations:** libuv has a **thread pool (4 threads by default)** working in the background, so in this context Node.js is **multi-threaded**.
+
+### 4.4 If the pool can be increased, why do worker threads, child processes and cluster exist?
+
+Because the thread pool and the other tools solve **different problems**.
+
+**The thread pool only runs libuv's built-in blocking tasks:** `fs`, `crypto` (pbkdf2, scrypt, bcrypt), `zlib` and `dns.lookup`. **Your own JavaScript never runs on it.** A heavy `for` loop, a big `JSON.parse`, image processing in JS or a long calculation still runs on the **main thread** and blocks the event loop, no matter how large `UV_THREADPOOL_SIZE` is.
+
+| Tool | What it gives you | Use it for |
+| :--- | :--- | :--- |
+| **`UV_THREADPOOL_SIZE`** | More background threads for libuv's built-in tasks (fs, crypto, zlib, dns) | Many simultaneous file reads, password hashes or compressions waiting in the queue |
+| **`worker_threads`** | Extra **JavaScript threads**, each with its own V8 engine and event loop (data is passed by messages, or shared through `SharedArrayBuffer`) | **CPU-heavy JavaScript** that would otherwise block the main thread |
+| **`child_process`** | A completely **separate OS process** with its own memory, and it can run **any program** (Python, ffmpeg, shell commands, another Node script) | Running external tools, or isolating risky work so a crash doesn't take down the main app |
+| **`cluster`** | Several Node.js **processes** (usually one per CPU core) **sharing the same server port** | Using **all CPU cores** for an HTTP server, and keeping the app up if one process dies |
+
+**Why not just set the pool to 1024?**
+
+- **CPU cores are the real limit.** A machine with 8 cores can run only 8 threads truly in parallel. Hundreds of threads fighting for 8 cores waste time on context switching and use more memory, and don't make the work faster.
+- **It only helps the four built-in task types.** It does nothing for your own JavaScript.
+- **Network I/O doesn't use the pool at all.** Sockets and HTTP go through epoll/kqueue, so raising the size doesn't help there.
+- **A bigger pool doesn't give isolation.** If one thread's work crashes the process, everything goes down, whereas with child processes or cluster only that process dies.
+
+### 4.5 If V8 is single-threaded, where do worker threads come from?
+
+"V8 is single-threaded" really means **one V8 instance (called an isolate) runs JavaScript on one thread at a time**. V8 is a library, and a process can create **more than one isolate**.
+
+When you create a `new Worker(...)`, Node.js:
+
+1. Asks the **OS to create a new thread** (through libuv's thread API, **not** from the 4-thread pool).
+2. Creates a **brand-new V8 isolate** on that thread, with its **own call stack, memory heap and garbage collector**.
+3. Creates a **brand-new event loop** for that thread.
+
+```
+One Node.js process
+├── Main thread     → V8 isolate #1 (own call stack + heap) + event loop #1
+├── Worker thread 1 → V8 isolate #2 (own call stack + heap) + event loop #2
+├── Worker thread 2 → V8 isolate #3 (own call stack + heap) + event loop #3
+└── libuv thread pool (4 threads) → shared by all of the above for fs / crypto / zlib / dns
+```
+
+So **each JavaScript thread is still single-threaded**. There are just several of them, side by side.
+
+- **Memory is not shared by default.** Each worker has its own heap, so objects can't be touched from another thread. Threads communicate by **message passing** (`postMessage`, data is copied), or share raw memory explicitly with `SharedArrayBuffer` + `Atomics`.
+- **Same process, different from `child_process`.** Workers live inside the same process (lighter, can share memory). A child process is a separate OS process with its own memory.
+- **Workers are not free.** Each one costs start-up time and memory (its own V8 + event loop), so don't create one per request. Create a small **pool of workers** (about the number of CPU cores) and reuse them.
+
+**Rule of thumb**
+
+- Slow because of **many fs / crypto / zlib jobs** → raise `UV_THREADPOOL_SIZE` (roughly up to the number of CPU cores).
+- Slow because of **heavy JavaScript computation** → `worker_threads`.
+- Need to **run another program or isolate work** → `child_process`.
+- Need to **use all cores for a web server** → `cluster` (or PM2 cluster mode).
+
+---
+
+## Part 5: Interview Questions: Threads, Concurrency and Workers
+
+### 5.1 Where each question is covered
+
+| Interview question | Covered in |
+| :--- | :--- |
+| Is Node.js single-threaded? | [4.3](#43-is-nodejs-single-threaded-or-multi-threaded) and Q1 below |
+| How does Node handle multiple tasks at once? | Part 2, [3.3](#33-when-there-is-nothing-to-do-the-loop-rests-at-poll) and Q2 below (concurrency vs parallelism) |
+| How do you use multiple threads? | [4.4](#44-if-the-pool-can-be-increased-why-do-worker-threads-child-processes-and-cluster-exist) and Q3 below |
+| What does a worker do? | [4.5](#45-if-v8-is-single-threaded-where-do-worker-threads-come-from) and Q4 below (with code) |
+| If single-threaded, how is there another thread? | [4.5](#45-if-v8-is-single-threaded-where-do-worker-threads-come-from) and Q5 below |
+| How do threads work together? | Q6 below (message passing, `SharedArrayBuffer`, `Atomics`) |
+
+### Q1. Is Node.js single-threaded?
+
+**Your JavaScript runs on one main thread** (the event loop thread). **Node.js itself is not purely single-threaded**: libuv runs a **thread pool** (4 threads by default) for fs, crypto, zlib and DNS, and V8 uses other **internal threads** (for example garbage collection and JIT compilation helpers).
+
+### Q2. How does Node handle multiple tasks at the same time?
+
+Through the **event loop and non-blocking I/O**:
+
+1. Async operations (network, file, database) are **handed off to the OS or libuv**.
+2. The main thread keeps running other code instead of waiting.
+3. When an operation finishes, its callback is queued, and the event loop runs it when the call stack is empty. With **promises** and **`async/await`**, the code after `await` is the part that resumes: the function is suspended at `await`, and when the result is ready its continuation runs as a promise callback.
+
+**This gives concurrency, not parallelism:**
+
+| | **Concurrency** | **Parallelism** |
+| :--- | :--- | :--- |
+| Meaning | Making progress on **many tasks by switching between them** | Running **multiple tasks at the same instant** on different CPU cores |
+| In Node.js | The event loop with non-blocking I/O (one JS thread) | libuv pool threads, `worker_threads`, `cluster` / `child_process` |
+| Analogy | One chef who starts the rice, then chops vegetables while the rice cooks | Several chefs, each cooking a dish at the same time |
+
+### Q3. How do you use multiple threads or cores?
+
+- **`worker_threads`:** for **CPU-heavy JavaScript** (extra JS threads inside the same process).
+- **`cluster`:** to **scale across cores**, one Node.js process per core sharing the same port. (Cluster is built on `child_process.fork`.)
+- **`child_process`:** to run **separate processes**, including other programs.
+
+### Q4. What does a worker do? (with code)
+
+A worker **runs JavaScript in a separate thread with its own V8 instance and event loop**. Heavy computation (image processing, hashing, parsing) runs there, so it **doesn't block the main thread**.
+
+```javascript
+// main.js
+const { Worker } = require("node:worker_threads");
+
+const worker = new Worker("./hash-worker.js", {
+  workerData: { input: "hello" },          // data given to the worker at start
+});
+
+worker.on("message", (result) => console.log("Result:", result)); // from the worker
+worker.on("error", (err) => console.error("Worker error:", err));
+worker.on("exit", (code) => console.log("Worker exited with code", code));
+
+console.log("Main thread is free to do other work");
+```
+
+```javascript
+// hash-worker.js
+const { parentPort, workerData } = require("node:worker_threads");
+const crypto = require("node:crypto");
+
+let hash = workerData.input;
+for (let i = 0; i < 1_000_000; i++) {       // CPU-heavy work, off the main thread
+  hash = crypto.createHash("sha256").update(hash).digest("hex");
+}
+
+parentPort.postMessage(hash);                // send the result back to main
+```
+
+### Q5. If Node.js is single-threaded, how is there another thread?
+
+The "single thread" refers only to the **main JavaScript execution thread**. Workers are **separate threads that Node.js spawns explicitly**, each with its own **isolated JavaScript context** (own V8 isolate, call stack and heap), as explained in [4.5](#45-if-v8-is-single-threaded-where-do-worker-threads-come-from). Separately, **libuv's thread pool** runs in the background for fs, crypto, DNS and similar work.
+
+### Q6. How do threads work together?
+
+**They don't share variables by default.** Each thread has its own memory, so they communicate by **message passing**:
+
+```javascript
+// in the main thread
+worker.postMessage({ task: "resize", id: 42 });          // send
+worker.on("message", (msg) => console.log(msg));          // receive
+
+// in the worker thread
+parentPort.on("message", (msg) => { /* do the work */ parentPort.postMessage({ done: true }); });
+```
+
+- Messages are **copied** (structured clone). Large binary data (an `ArrayBuffer`) can be **transferred** instead of copied, which is faster and moves ownership to the other thread.
+- For **shared memory**, use a **`SharedArrayBuffer`**: both threads see the same bytes. Because two threads can then read and write the same memory at the same time, use **`Atomics`** to avoid **race conditions**.
+
+```javascript
+const shared = new SharedArrayBuffer(4);
+const counter = new Int32Array(shared);   // pass `shared` to the worker via workerData
+
+// counter[0]++ in two threads at once is NOT safe (read-modify-write can interleave: lost updates)
+Atomics.add(counter, 0, 1);               // ✅ atomic: no race condition
+```
+
+> **One-liner answer:** *"Node.js runs JavaScript on a single main thread and gets concurrency from the event loop and non-blocking I/O. For parallelism, libuv's thread pool handles fs/crypto/DNS, `worker_threads` runs CPU-heavy JavaScript in separate threads with their own V8 and event loop, and `cluster`/`child_process` scale across cores. Threads communicate by message passing, or share memory through `SharedArrayBuffer` and `Atomics`."*

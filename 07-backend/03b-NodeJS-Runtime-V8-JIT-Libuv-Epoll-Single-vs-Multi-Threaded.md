@@ -299,6 +299,13 @@ flowchart TD
 - If a file read and a crypto job are handed to the pool, **2 of the 4 threads are busy, and the main thread is not blocked.** When they finish, those 2 threads free up for the next jobs.
 - If you submit **more than 4 jobs** at once, the extra ones **queue up** until a thread is free.
 
+**Changing the pool size:** set the **`UV_THREADPOOL_SIZE`** environment variable (default **4**, maximum **1024**) **before the process starts**. The pool is created once, so the size can't be changed afterwards.
+
+```bash
+UV_THREADPOOL_SIZE=16 node app.js              # Linux / macOS
+$env:UV_THREADPOOL_SIZE = 16; node app.js      # Windows PowerShell
+```
+
 > ⚠️ *Precision note:* only **fs, crypto, zlib and `dns.lookup`** use the pool. **Network I/O (sockets, `http`, `https.get` data) does not**; it uses epoll/kqueue/IOCP as in section 5. Timers don't use it either. That is why one Node process can serve thousands of connections with only 4 pool threads.
 
 ---
@@ -333,12 +340,48 @@ flowchart LR
 
 ### 7.1 Beyond the default: real JavaScript parallelism
 
-If you need **more JavaScript parallelism** you opt in explicitly:
+**If the pool size can be raised to 1024, why do worker threads, child processes and cluster exist?** Because they solve different problems. The thread pool only runs libuv's built-in blocking tasks (**fs, crypto, zlib, `dns.lookup`**). **Your own JavaScript never runs on it**, so a heavy loop or a huge `JSON.parse` still blocks the main thread however large `UV_THREADPOOL_SIZE` is.
 
 | Tool | What it gives you | Use for |
 | :--- | :--- | :--- |
-| **`worker_threads`** | Extra JS threads, each with its own V8 + event loop (can share memory) | CPU-heavy JS (image processing, parsing big JSON) |
-| **`cluster` / PM2 cluster mode** | Multiple Node **processes**, one per CPU core, sharing a port | Using all cores for an HTTP server |
+| **`UV_THREADPOOL_SIZE`** | More background threads for fs / crypto / zlib / dns | Many simultaneous file reads, password hashes or compressions queuing up |
+| **`worker_threads`** | Extra JS threads, each with its own V8 + event loop (messages, or shared memory via `SharedArrayBuffer`) | CPU-heavy JS (image processing, parsing big JSON) |
+| **`child_process`** | A separate **OS process** with its own memory that can run **any program** (Python, ffmpeg, shell, another Node script) | External tools, or isolating risky work so a crash doesn't take down the app |
+| **`cluster` / PM2 cluster mode** | Multiple Node **processes**, one per CPU core, sharing a port | Using all cores for an HTTP server, and surviving a process crash |
+
+**Concurrency vs parallelism:** the event loop with non-blocking I/O gives **concurrency** (progress on many tasks by switching between them, on one JS thread). **Parallelism** (tasks truly running at the same time on different cores) comes from libuv pool threads, `worker_threads`, and `cluster`/`child_process`. Threads don't share variables by default; they use **message passing** (`postMessage`), or share memory with `SharedArrayBuffer` + `Atomics` to avoid race conditions. Worker code examples and the full interview Q&A are in [03a, Part 5](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#part-5-interview-questions-threads-concurrency-and-workers).
+
+**Where do worker threads come from if V8 is single-threaded?** "Single-threaded" means *one V8 instance (isolate) runs JS on one thread*. V8 is a library, so Node can create several isolates. `new Worker()` asks the OS for a **new thread** (via libuv's thread API, *not* the 4-thread pool) and starts a **new V8 isolate + a new event loop** on it, each with its own call stack, heap and GC.
+
+```mermaid
+flowchart TD
+    subgraph PROC["One Node.js process"]
+        subgraph M["Main thread"]
+            V1["V8 isolate #1<br/>call stack + heap"] --- E1["Event loop #1"]
+        end
+        subgraph W1["Worker thread 1"]
+            V2["V8 isolate #2<br/>call stack + heap"] --- E2["Event loop #2"]
+        end
+        subgraph W2["Worker thread 2"]
+            V3["V8 isolate #3<br/>call stack + heap"] --- E3["Event loop #3"]
+        end
+        POOL["libuv thread pool (4 threads)<br/>shared: fs / crypto / zlib / dns"]
+    end
+    M -- "postMessage (copied)" --> W1
+    M -- "postMessage (copied)" --> W2
+    M -.-> POOL
+    W1 -.-> POOL
+    W2 -.-> POOL
+```
+
+Memory is **not shared by default** (communicate with `postMessage`, or share raw memory with `SharedArrayBuffer` + `Atomics`). Workers cost start-up time and memory, so use a small **pool of reusable workers** (about the CPU core count) instead of one per request.
+
+**Why not just set the pool to 1024?**
+- CPU cores are the real limit. On an 8-core machine only 8 threads run truly in parallel, so hundreds of threads add context-switching and memory cost without making work faster.
+- It only helps the four built-in task types, and does nothing for your own JS or for network I/O (which uses epoll/kqueue).
+- It gives no isolation: a crash still takes down the whole process.
+
+**Rule of thumb:** many fs/crypto jobs queuing → raise `UV_THREADPOOL_SIZE` (roughly up to the CPU core count) · heavy JS computation → `worker_threads` · run another program or isolate work → `child_process` · use all cores for a web server → `cluster`.
 
 ---
 
