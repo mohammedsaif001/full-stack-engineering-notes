@@ -1,6 +1,8 @@
 # Node.js Internals: Event Loop, Libuv, Threadpool & Asynchronous Architecture
 ## Comprehensive Technical Guide to Node.js Concurrency, Execution Lifecycle & Performance Tuning
 
+> 📎 **Start here first:** [03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md](03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md) covers the V8 JIT pipeline, the full 6-phase event loop, epoll/kqueue, and the "single vs multi-threaded" answer. This file goes deeper on practical use cases, labs and shutdown.
+
 ---
 
 ## 📌 Executive Summary
