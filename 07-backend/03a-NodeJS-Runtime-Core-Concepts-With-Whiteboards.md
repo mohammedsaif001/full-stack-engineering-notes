@@ -1,8 +1,8 @@
 # Node.js Runtime: Core Concepts with Whiteboard Diagrams
 
 > The whiteboard diagrams are kept exactly as drawn, so they can be redrawn from memory.
-> Extended version with Mermaid diagrams, epoll internals and `worker_threads`/`cluster`: [03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md](03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md)
-> Deep dive with labs: [03-NodeJS-Internals-Event-Loop-Libuv-Threadpool.md](03-NodeJS-Internals-Event-Loop-Libuv-Threadpool.md)
+> Mermaid versions of the diagrams and extra details (full 6-phase loop, poll-phase decision flow, epoll internals, thread-pool routing): [03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md](03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md)
+> Practical use cases, labs and graceful shutdown: [03-NodeJS-Internals-Event-Loop-Libuv-Threadpool.md](03-NodeJS-Internals-Event-Loop-Libuv-Threadpool.md)
 
 ---
 

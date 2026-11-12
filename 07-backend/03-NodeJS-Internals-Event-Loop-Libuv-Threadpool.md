@@ -1,26 +1,19 @@
 # Node.js Internals: Event Loop, Libuv, Threadpool & Asynchronous Architecture
 ## Comprehensive Technical Guide to Node.js Concurrency, Execution Lifecycle & Performance Tuning
 
-> 📎 **Start here first:** [03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md](03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md) covers the V8 JIT pipeline, the full 6-phase event loop, epoll/kqueue, and the "single vs multi-threaded" answer. This file goes deeper on practical use cases, labs and shutdown.
+> 📎 **Read first:** [03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md) (concepts, whiteboards, thread pool size, workers, interview Q&A) and [03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md](03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md) (Mermaid diagrams, full 6-phase loop, epoll internals). This file covers **practical use cases, hands-on labs and graceful shutdown**.
 
 ---
 
 ## 📌 Executive Summary
 
-- **The Node.js Formula**: $\text{Node.js} = \text{Google V8 Engine (C++)} + \text{C/C++ Core Bindings} + \text{Libuv (Event Loop \& Threadpool)}$.
-- **Core JavaScript vs Host Environments**: Pure JavaScript (ECMAScript) provides syntax, data structures, and arithmetic. It has no native concept of timers (`setTimeout`), network sockets (`fetch`, `http`), or disk files (`fs`). Browsers supply these via **Web APIs**, while Node.js supplies them via **OS-level C++ Bindings & Libuv**.
 - **Process Execution Lifecycle**: Every `node script.js` command initializes a process and executes in strict sequential stages:
   1. **Module Resolution & Static Imports**: Hoisted and linked into module memory before code execution.
   2. **Top-Level Synchronous Code**: Executes sequentially on the single-threaded **Main Call Stack**.
   3. **Event Callback Registration**: Timers, I/O callbacks, and signal listeners are registered.
   4. **Event Loop Launch**: If active handles or async requests exist, the event loop begins cycling through its phases until all work is resolved.
-- **Simplified Event Loop Model**:
-  - 🕒 **1. Timers**: Runs expired `setTimeout()` and `setInterval()` callbacks.
-  - 📥 **2. I/O & Polling**: Waits for and handles file system reads, network responses, and database queries.
-  - ⚡ **3. Check (`setImmediate`)**: Executes callbacks immediately after I/O polling completes.
-  - 🚪 **4. Close Callbacks**: Handles teardown events (e.g., `socket.on('close')`).
-  - 🚀 **Microtasks (`process.nextTick` & Promises)**: Fast-track VIP queues that execute *immediately* the instant the current JavaScript operation finishes.
-- **Libuv Worker Thread Pool**: Heavy synchronous/blocking operations (Cryptography, File I/O, Compression, DNS lookups) are automatically offloaded to a pool of background worker threads (default: **4 threads**, configurable via `UV_THREADPOOL_SIZE`).
+- **Microtasks (`process.nextTick` & Promises)**: Fast-track VIP queues that execute *immediately* the instant the current JavaScript operation finishes.
+- **What this file adds**: real-world use cases for `nextTick`, `setImmediate`, `setTimeout` and the thread pool; 8 hands-on labs with output analysis; POSIX signals and graceful shutdown.
 
 ---
 
@@ -39,90 +32,28 @@
 
 ## 🏛️ 1. Node.js Architectural Anatomy
 
-Node.js executes JavaScript on a single thread while delegating asynchronous, I/O-intensive, and CPU-heavy operations to the underlying operating system kernel or background C threads.
+Node.js executes JavaScript on a single thread while delegating asynchronous, I/O-intensive and CPU-heavy operations to the operating system kernel or background C threads.
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                          NODE.JS ARCHITECTURE                          │
-├────────────────────────────────────────────────────────────────────────┤
-│                       JavaScript Application Code                      │
-│                  (index.js, Controllers, Modules)                      │
-├────────────────────────────────────────────────────────────────────────┤
-│                    Node.js Core Standard Library                       │
-│              (node:fs, node:crypto, node:http, node:net)               │
-├────────────────────────────────────────────────────────────────────────┤
-│                       C / C++ Bindings Layer                           │
-│                   (Node-API, V8 Wrapper Bridges)                       │
-├───────────────────────────────────┬────────────────────────────────────┤
-│         GOOGLE V8 ENGINE          │               LIBUV                │
-│  • Compiles JS to Machine Code    │  • Event Loop (Single Thread)      │
-│  • Call Stack Execution           │  • Worker Thread Pool (4 Threads)  │
-│  • Memory Heap & GC Management    │  • Non-blocking Async OS I/O       │
-│  • Microtask Queue Handling       │  • Cross-Platform Event Notifiers  │
-└───────────────────────────────────┴────────────────────────────────────┘
-```
+- **V8** runs your JavaScript (call stack, memory heap, garbage collector, microtask queue).
+- **libuv** provides the event loop, the callback queues, the worker thread pool and the OS I/O interface.
+- **C/C++ bindings** connect the Node.js standard library (`fs`, `crypto`, `http`, `net`) to both.
+
+> 📎 The full explanation with whiteboard diagrams is in [03a, Parts 1–2](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#part-1-nodejs-javascript-libuv-and-jit). The Mermaid architecture diagram is in [03b, section 1](03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md#1-big-picture-v8--libuv--os).
 
 ---
 
 ## 🔄 2. Simplified Event Loop: The 4-Phase Mental Model
 
-Instead of getting bogged down in low-level OS internals, the Node.js Event Loop can be mastered using a straightforward **4-Phase Cycle** plus the **Microtask Fast-Track**:
+The working model used in the labs below is a **4-phase cycle** plus the **microtask fast-track**:
 
-```
-                              ┌───────────────────────────┐
-                              │    JavaScript Call Stack  │
-                              │   (Top-Level Code / Sync) │
-                              └─────────────┬─────────────┘
-                                            │
-                                            ▼
-                             ┌─────────────────────────────┐
-                    ┌───────▶│    MICROTASK FAST-TRACK     │
-                    │        │  1. process.nextTick()      │
-                    │        │  2. Promise.then() / await  │
-                    │        └──────────────┬──────────────┘
-                    │                       │
-                    │                       ▼
-                    │        ┌─────────────────────────────┐
-                    │        │   PHASE 1: TIMERS           │
-                    │        │   setTimeout, setInterval   │
-                    │        └──────────────┬──────────────┘
-                    │                       │
-                    │                       ▼
-                    │        ┌─────────────────────────────┐
-                    │        │   PHASE 2: I/O & POLLING    │
-                    │        │   fs.readFile, HTTP, DB     │
-                    │        └──────────────┬──────────────┘
-                    │                       │
-                    │                       ▼
-                    │        ┌─────────────────────────────┐
-                    │        │   PHASE 3: CHECK            │
-                    │        │   setImmediate() callbacks  │
-                    │        └──────────────┬──────────────┘
-                    │                       │
-                    │                       ▼
-                    │        ┌─────────────────────────────┐
-                    │        │   PHASE 4: CLOSE CALLBACKS  │
-                    │        │   socket.on('close', ...)   │
-                    │        └──────────────┬──────────────┘
-                    │                       │
-                    └───────────────────────┘
-                                 (Repeat if active handles remain)
-```
+1. 🕒 **Timers:** `setTimeout`, `setInterval`
+2. 📥 **I/O & Polling:** `fs`, network sockets, database queries (the loop can rest here)
+3. ⚡ **Check:** `setImmediate`
+4. 🚪 **Close callbacks:** `socket.on('close')`
 
-### The 4 Core Phases Explained:
+> **Crucial rule:** because Check sits right after Poll, a `setImmediate()` scheduled **inside an I/O callback** always runs **before** any new timer on the next tick.
 
-1. 🕒 **Phase 1: Timers (`setTimeout`, `setInterval`)**:
-   - The loop checks its internal timer min-heap.
-   - If the clock has passed the threshold for a timer, its callback function is moved to the call stack and executed.
-2. 📥 **Phase 2: I/O & Polling (`fs`, network sockets, database queries)**:
-   - Node checks if any background I/O operations (file reading, incoming HTTP request, TCP payload) have finished.
-   - If events are ready, their callbacks execute.
-   - If no callbacks are waiting and no `setImmediate` is scheduled, Node can safely pause (block) here and wait for the OS to signal incoming network traffic or timer expirations.
-3. ⚡ **Phase 3: Check (`setImmediate`)**:
-   - Runs callbacks scheduled with `setImmediate()`.
-   - **Crucial Rule**: Because this phase sits immediately after Phase 2 (I/O), any `setImmediate()` scheduled inside an I/O callback is **guaranteed to run before any new timers on the next tick**.
-4. 🚪 **Phase 4: Close Callbacks (`socket.on('close')`, `server.close()`)**:
-   - Executes teardown and cleanup logic when sockets or file handles terminate abruptly.
+> 📎 The complete model (all 6 phases including *pending callbacks* and *idle/prepare*, what the loop does while idle in poll, and a worked example) is in [03a, Part 3](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#part-3-the-event-loop-phases) and [03b, section 3](03b-NodeJS-Runtime-V8-JIT-Libuv-Epoll-Single-vs-Multi-Threaded.md#3-the-event-loop).
 
 ---
 

@@ -1,43 +1,15 @@
-# Node.js Runtime Fundamentals: V8, JIT, Libuv, Epoll & "Is Node Single-Threaded?"
+# Node.js Runtime: Mermaid Diagrams & Deep-Dive Extras
 
-> **Companion note.** This is the *"how does it all fit together"* layer. For the deep dive on timers/`setImmediate`/`nextTick` behaviour, thread-pool labs and graceful shutdown, see [03-NodeJS-Internals-Event-Loop-Libuv-Threadpool.md](03-NodeJS-Internals-Event-Loop-Libuv-Threadpool.md).
-
----
-
-## Executive Summary
-
-- **Node.js is an event-driven runtime with asynchronous (non-blocking) I/O.**
-- **Node.js = V8 (runs your JS) + libuv (does the async work) + C++ bindings gluing them.**
-- **JavaScript itself is synchronous and single-threaded.** It has no concept of timers, files or HTTP. Those come from the *host*: the **browser** gives you Web APIs, **Node.js** gives you **libuv**.
-- **V8 is a JIT engine** (interpreter + optimising compiler), so JS is neither purely interpreted nor purely compiled.
-- **Libuv** owns the **event loop**, the **callback queues** and a **thread pool (4 threads by default)**, and talks to the OS through **epoll (Linux) / kqueue (macOS) / IOCP (Windows)**.
-- **Single or multi-threaded?** Your JS runs on **one** thread. The Node *process* is multi-threaded because of libuv's thread pool.
+> **How the three Node.js runtime notes fit together**
+> - [03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md): **the main study note.** Concepts, whiteboard diagrams, thread pool size, workers and interview Q&A.
+> - **This file (03b):** Mermaid versions of the diagrams, plus the extra details that are not in 03a (full 6-phase loop, poll-phase decision flow, epoll internals, thread-pool routing, process-level threads).
+> - [03-NodeJS-Internals-Event-Loop-Libuv-Threadpool.md](03-NodeJS-Internals-Event-Loop-Libuv-Threadpool.md): practical use cases, hands-on labs and graceful shutdown.
 
 ---
 
-## 1. JavaScript vs the Host Environment
+## 1. Big Picture: V8 + libuv + OS
 
-JavaScript (ECMAScript) only gives you syntax, data types and functions. These things are **not** in the language:
-
-| Feature | Not JavaScript. Provided by... | In the browser | In Node.js |
-| :--- | :--- | :--- | :--- |
-| Timers (`setTimeout`) | Host | Web APIs | **libuv** |
-| HTTP calls (`fetch`, `https.get`) | Host | Web APIs | **libuv** (+ OS sockets) |
-| File access (`fs.readFile`) | Host | Not allowed | **libuv** (thread pool) |
-
-```javascript
-https.get("https://api.fbi.com", (res) => console.log(res.secret)); // network  → libuv
-fs.readFile("./gossip.txt", "utf8", (data) => console.log(data));   // file     → libuv
-setTimeout(() => console.log("5 sec passed"), 5000);                // timer    → libuv
-```
-
-> **Analogy:** JavaScript is a brilliant chef who can only do one thing at a time. libuv is the kitchen staff and the delivery partners. The chef says "get me this file / this API response / ring me in 5 seconds", then keeps cooking while someone else does the waiting.
-
----
-
-## 2. Big Picture: V8 + Libuv + OS
-
-*(The "Node.js, libuv genie / superhero" diagram, with the thread pool and event loop added.)*
+Explained in [03a, Part 1](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#part-1-nodejs-javascript-libuv-and-jit) and [Part 2](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#part-2-v8--libuv-the-event-loop-and-the-callback-queue).
 
 ```mermaid
 flowchart LR
@@ -65,56 +37,13 @@ flowchart LR
     LIBUV <--> OS
 ```
 
-### 2.1 What lives inside V8
-
-| Part | Role |
-| :--- | :--- |
-| **Call Stack** | Runs one function at a time (LIFO). The bottom frame is the **GEC (Global Execution Context)**, created when the file starts. |
-| **Memory Heap** | Where objects, arrays and closures are stored. |
-| **Garbage Collector** | Frees heap memory that nothing references any more. |
-
-```javascript
-var a = 1078698;
-var b = 20986;
-function multiplyFn(x, y) { const result = a * b; return result; }
-var c = multiplyFn(a, b);
-// GEC pushed → multiplyFn() pushed on top → returns → popped → GEC finishes
-```
-
-### 2.2 What libuv does
-
-Libuv is a **C library** with several components. The ones you need to know:
-
-1. **Event Loop**: keeps cycling through phases and picks up finished work.
-2. **Callback Queues**: finished async operations wait here for their turn.
-3. **Thread Pool**: runs blocking work (fs, crypto, ...) in background threads.
-4. **OS interface**: epoll / kqueue / IOCP (see section 5).
-
-**How the event loop and callback queue cooperate:**
-
-1. V8 runs your top-level code on the call stack.
-2. Async calls (timer, file, HTTP) are handed to libuv, which hands them to the OS or the thread pool.
-3. When one finishes, its callback is placed in a **callback queue**.
-4. The event loop checks whether the **call stack is empty**. If so, it takes callbacks from the queues one by one and runs them **on the main thread**.
-
-> ⚠️ *Precision note:* libuv doesn't execute the callbacks "in the queue". It only *delivers* them. The actual JS callback always runs on V8's single thread.
+> ⚠️ libuv doesn't execute the callbacks in the queue. It only *delivers* them. The JS callback itself always runs on V8's single thread.
 
 ---
 
-## 3. How V8 Runs Your Code: Parsing → AST → Ignition → Turbofan
+## 2. V8 Pipeline: Parsing → AST → Ignition → Turbofan
 
-### 3.1 Interpreted vs Compiled vs JIT
-
-| | **Interpreted** | **Compiled** | **JIT (what JS does)** |
-| :--- | :--- | :--- | :--- |
-| How | Line by line | Whole program translated to machine code first | Interpret first, compile the **hot** parts while running |
-| Start-up | ⚡ Fast | 🐢 Slow (initial heavy compile) | ⚡ Fast |
-| Run speed | Slower | 🚀 Very fast | 🚀 Fast where it matters |
-| Tool | Interpreter | Compiler | Interpreter **and** compiler |
-
-JavaScript is **neither purely interpreted nor purely compiled**. It uses **JIT (Just-In-Time) compilation**, a mix of both.
-
-### 3.2 The full pipeline
+Explained in [03a, 1.5–1.6](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#15-how-v8-runs-code-interpreted-compiled-or-both-jit).
 
 ```mermaid
 flowchart TD
@@ -132,38 +61,17 @@ flowchart TD
     OPT -. "assumption broken → de-optimise" .-> IGN
 ```
 
-**Step by step:**
-
-1. **Lexical analysis (tokenization):** the raw text is split into tokens (`var`, `a`, `=`, `10`, ...).
-2. **Syntax analysis (parsing):** tokens are arranged into an **AST**, a tree showing the structure of the program.
-3. **Ignition (interpreter):** walks the AST, produces **bytecode** and starts executing right away (fast start-up).
-4. **Hot code → Turbofan:** if a function is called again and again ("hot"), V8 sends it to the **Turbofan** optimising compiler, which produces **optimised machine code**. Later calls run that super-fast version.
-5. **De-optimisation:** Turbofan optimises by **making assumptions**. If an assumption breaks, V8 throws away the optimised code and falls back to Ignition.
-
-```javascript
-function sum(a, b) { return a + b; }
-sum(10, 5);   // interpreted
-sum(2, 3);    // hot → Turbofan assumes "a and b are always numbers" → fast machine code
-sum(6, 7);    // runs the optimised version ⚡
-sum("a", "b") // 💥 assumption broken (strings!) → DE-OPTIMISE → back to Ignition
-              //    ...and if it becomes hot with strings, it is re-optimised for strings
-```
-
-> 💡 **Practical takeaway:** keep function argument types consistent so V8 can optimise and keep the optimised code.
-
-> ⚠️ *Precision notes:* strictly, the AST goes to **Ignition**, which generates the bytecode. Turbofan later takes the **hot bytecode plus the type feedback** Ignition collected. Modern V8 also has a middle tier called **Sparkplug** (a quick baseline compiler) between Ignition and Turbofan. And **V8 is an engine, not a language**: "JavaScript" is the language that is single-threaded and synchronous.
+- 💡 **Practical takeaway:** keep function argument types consistent so V8 can optimise and keep the optimised code.
+- Turbofan takes the **hot bytecode plus the type feedback** that Ignition collected.
+- Modern V8 has a middle tier called **Sparkplug** (a quick baseline compiler) between Ignition and Turbofan.
 
 ---
 
-## 4. The Event Loop: Phases, Ticks and the Inner Queues
+## 3. The Event Loop
 
-### 4.1 Vocabulary
+Explained in [03a, Part 3](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#part-3-the-event-loop-phases), including the worked example.
 
-- **One full cycle of the event loop = one "tick".**
-- **Outer circle:** the *phases* (libuv).
-- **Inner circle:** `process.nextTick()` queue and **promise callbacks** (microtasks), managed by Node/V8 and drained **in between** phases.
-
-### 4.2 All phases, in order
+### 3.1 All six phases, in order
 
 ```mermaid
 flowchart TD
@@ -177,20 +85,9 @@ flowchart TD
     CLOSE["6. CLOSE CALLBACKS<br/>socket.on('close')"] --> TIMERS
 ```
 
-> Between **every** phase (and in modern Node, after **every callback**) the inner circle is drained: **`process.nextTick()` first, then Promise callbacks**, then the loop continues.
+Between **every** phase (and in modern Node, after **every callback**) the inner circle is drained: `process.nextTick()` first, then Promise callbacks.
 
-| # | Phase | What runs there |
-| :--- | :--- | :--- |
-| 1 | **Timers** | Expired `setTimeout` / `setInterval` callbacks |
-| 2 | **Pending callbacks** | Some I/O callbacks deferred to the next iteration (e.g. retries, certain error handling) |
-| 3 | **Idle / Prepare** | Internal libuv use only (you never schedule work here) |
-| 4 | **Poll** | New I/O events: incoming connections, data, `fs`, `crypto`, `http.get` callbacks. **Where the loop can wait.** |
-| 5 | **Check** | `setImmediate()` callbacks |
-| 6 | **Close** | Cleanup like `socket.on('close')` |
-
-### 4.3 The poll phase is where the loop rests ("the catch")
-
-When nothing is left to do, the loop does **not** spin the CPU. It **parks in the poll phase** and asks the OS (epoll/kqueue) to wake it up. What happens next depends on what is scheduled:
+### 3.2 What the loop does inside the poll phase
 
 ```mermaid
 flowchart TD
@@ -203,52 +100,17 @@ flowchart TD
     T -- "No" --> W2["WAIT for I/O indefinitely<br/>(or exit if there is no work left at all)"]
 ```
 
-- **If `setImmediate` is queued → next is CHECK, not TIMERS.**
-- **Timer wait example:** timers at 5 s, 10 s and 15 s → the loop waits in poll for the **nearest one (5 s)**, then starts the next cycle. It does **not** keep ticking for those 5 seconds.
+When nothing is left to do, the loop does **not** spin the CPU. It parks in poll and lets the OS (epoll/kqueue) wake it up.
 
-> ⚠️ *Precision note:* the loop waits for the **earliest / nearest** timer (the one due first), not the latest.
+### 3.3 Ordering caveat for the worked example
 
-### 4.4 Worked example
-
-```javascript
-setImmediate(() => console.log("setImmediate"));
-setTimeout(() => console.log("Timer expired"), 0);
-Promise.resolve().then(() => console.log("Promise"));
-
-fs.readFile("./file.txt", "utf8", () => {
-  setTimeout(() => console.log("2nd timer"), 0);
-  process.nextTick(() => console.log("2nd nextTick"));
-  setImmediate(() => console.log("2nd setImmediate"));
-  console.log("File Reading CB");
-});
-
-process.nextTick(() => console.log("nextTick"));
-console.log("Last line of the file.");
-```
-
-> ⚠️ *Code fix:* the video snippet writes `Promise.resolve(() => ...)`. That never runs the function (it just resolves *with* a function). To get `"Promise"` in the output you need `Promise.resolve().then(...)` as above.
-
-**Output (typical):**
-
-```
-Last line of the file.     ← 1. top-level sync code finishes first
-nextTick                   ← 2. inner circle: nextTick queue first
-Promise                    ← 3. then promise callbacks
-Timer expired              ← 4. TIMERS phase
-setImmediate               ← 5. CHECK phase (file still being read by the thread pool)
-File Reading CB            ← 6. POLL phase: file ready → callback runs
-2nd nextTick               ← 7. inner circle drains right after that callback
-2nd setImmediate           ← 8. CHECK phase (before timers, because we are past poll)
-2nd timer                  ← 9. next tick's TIMERS phase
-```
-
-**Why steps 7 → 9 are in this order:** inside an I/O callback (poll), `setImmediate` is **always** run before a `setTimeout(…, 0)`, because CHECK comes right after POLL while TIMERS is the next iteration.
-
-> ⚠️ *Caveat:* the order of **`Timer expired` vs `setImmediate` at top level** (steps 4 and 5) is not guaranteed by Node. It depends on whether 1 ms has elapsed when the loop starts, so it can flip between runs. Inside an I/O callback the order (step 8 before 9) **is** guaranteed. The exact timing of `File Reading CB` also depends on how fast the disk read finishes.
+The order of **`Timer expired` vs `setImmediate` at top level** is **not guaranteed**. It depends on whether 1 ms has elapsed when the loop starts, so it can flip between runs. **Inside an I/O callback**, `setImmediate` always runs before `setTimeout(…, 0)`, because CHECK comes right after POLL while TIMERS is the next iteration. The exact timing of `File Reading CB` also depends on how fast the disk read finishes.
 
 ---
 
-## 5. Libuv ↔ OS: epoll, kqueue, IOCP
+## 4. libuv ↔ OS: epoll, kqueue, IOCP
+
+Explained in [03a, 4.1](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#41-libuv-talks-to-the-os-through-epoll--kqueue).
 
 ```mermaid
 flowchart LR
@@ -260,21 +122,18 @@ flowchart LR
     end
 ```
 
-- Each OS has a **scalable I/O event notification mechanism**. libuv hides the differences behind one API.
-  - **Linux → `epoll`**
-  - **macOS → `kqueue`**
-  - **Windows → `IOCP`**
-- **fds = file/socket descriptors.** To the OS, every open socket or file is just an integer handle. libuv says *"tell me when **these** descriptors become readable/writable"*, so **one thread can watch thousands of connections** without a thread per connection.
-- **"What data structure is behind epoll?"** Inside the Linux kernel an epoll instance keeps:
+- libuv hides the three mechanisms behind one API.
+- **fds (file/socket descriptors):** to the OS, every open socket or file is just an integer handle. libuv says *"tell me when **these** descriptors become readable/writable"*, so **one thread can watch thousands of connections** without a thread per connection.
+- **What data structure is behind epoll?** Inside the Linux kernel an epoll instance keeps:
   - an **interest list**: a **red-black tree** of every fd being watched (fast add/remove/lookup), and
   - a **ready list**: a **linked list** of fds that have events right now. `epoll_wait()` just hands you this list, so it doesn't scan every connection each time.
-- **Related topics:** **EventEmitter** (covered in [13-NodeJS-EventEmitter-Architecture-Event-Driven-Design.md](13-NodeJS-EventEmitter-Architecture-Event-Driven-Design.md)) and **Streams & Buffers** (covered in [14-NodeJS-Buffer-Architecture-Binary-Data-Encoding.md](14-NodeJS-Buffer-Architecture-Binary-Data-Encoding.md)).
+- **Related topics:** EventEmitter → [13-NodeJS-EventEmitter-Architecture-Event-Driven-Design.md](13-NodeJS-EventEmitter-Architecture-Event-Driven-Design.md) · Streams & Buffers → [14-NodeJS-Buffer-Architecture-Binary-Data-Encoding.md](14-NodeJS-Buffer-Architecture-Binary-Data-Encoding.md)
 
 ---
 
-## 6. The Thread Pool: Who Gets It and Who Doesn't
+## 5. Who Gets the Thread Pool and Who Doesn't
 
-Libuv keeps a pool of **4 threads by default** (`UV_THREADPOOL_SIZE`, see the main note for tuning).
+Pool size and behaviour are in [03a, 4.2](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#42-the-thread-pool).
 
 ```mermaid
 flowchart TD
@@ -295,24 +154,13 @@ flowchart TD
     CB --> EL["Event loop → main thread runs callback"]
 ```
 
-**How the pool behaves:**
-- If a file read and a crypto job are handed to the pool, **2 of the 4 threads are busy, and the main thread is not blocked.** When they finish, those 2 threads free up for the next jobs.
-- If you submit **more than 4 jobs** at once, the extra ones **queue up** until a thread is free.
-
-**Changing the pool size:** set the **`UV_THREADPOOL_SIZE`** environment variable (default **4**, maximum **1024**) **before the process starts**. The pool is created once, so the size can't be changed afterwards.
-
-```bash
-UV_THREADPOOL_SIZE=16 node app.js              # Linux / macOS
-$env:UV_THREADPOOL_SIZE = 16; node app.js      # Windows PowerShell
-```
-
-> ⚠️ *Precision note:* only **fs, crypto, zlib and `dns.lookup`** use the pool. **Network I/O (sockets, `http`, `https.get` data) does not**; it uses epoll/kqueue/IOCP as in section 5. Timers don't use it either. That is why one Node process can serve thousands of connections with only 4 pool threads.
+> ⚠️ Only **fs, crypto, zlib and `dns.lookup`** use the pool. **Network I/O does not**; it uses epoll/kqueue/IOCP. Timers don't use it either. That is why one Node process can serve thousands of connections with only 4 pool threads.
 
 ---
 
-## 7. Is Node.js Single-Threaded or Multi-Threaded?
+## 6. Single-Threaded or Multi-Threaded? The Process-Level View
 
-**It depends on the context:**
+Short answer in [03a, 4.3](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#43-is-nodejs-single-threaded-or-multi-threaded) and [Part 5, Q1](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#q1-is-nodejs-single-threaded).
 
 | Context | Answer | Why |
 | :--- | :--- | :--- |
@@ -336,22 +184,11 @@ flowchart LR
     POOLX -- "callback queued" --> MAIN
 ```
 
-> **One-liner for interviews:** *"Node.js runs JavaScript on a single thread, but it is not single-threaded overall: libuv runs a pool of 4 worker threads in the background for file, crypto, compression and DNS work, and the OS handles network I/O."*
+---
 
-### 7.1 Beyond the default: real JavaScript parallelism
+## 7. Worker Threads: One V8 Isolate + Event Loop per Thread
 
-**If the pool size can be raised to 1024, why do worker threads, child processes and cluster exist?** Because they solve different problems. The thread pool only runs libuv's built-in blocking tasks (**fs, crypto, zlib, `dns.lookup`**). **Your own JavaScript never runs on it**, so a heavy loop or a huge `JSON.parse` still blocks the main thread however large `UV_THREADPOOL_SIZE` is.
-
-| Tool | What it gives you | Use for |
-| :--- | :--- | :--- |
-| **`UV_THREADPOOL_SIZE`** | More background threads for fs / crypto / zlib / dns | Many simultaneous file reads, password hashes or compressions queuing up |
-| **`worker_threads`** | Extra JS threads, each with its own V8 + event loop (messages, or shared memory via `SharedArrayBuffer`) | CPU-heavy JS (image processing, parsing big JSON) |
-| **`child_process`** | A separate **OS process** with its own memory that can run **any program** (Python, ffmpeg, shell, another Node script) | External tools, or isolating risky work so a crash doesn't take down the app |
-| **`cluster` / PM2 cluster mode** | Multiple Node **processes**, one per CPU core, sharing a port | Using all cores for an HTTP server, and surviving a process crash |
-
-**Concurrency vs parallelism:** the event loop with non-blocking I/O gives **concurrency** (progress on many tasks by switching between them, on one JS thread). **Parallelism** (tasks truly running at the same time on different cores) comes from libuv pool threads, `worker_threads`, and `cluster`/`child_process`. Threads don't share variables by default; they use **message passing** (`postMessage`), or share memory with `SharedArrayBuffer` + `Atomics` to avoid race conditions. Worker code examples and the full interview Q&A are in [03a, Part 5](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#part-5-interview-questions-threads-concurrency-and-workers).
-
-**Where do worker threads come from if V8 is single-threaded?** "Single-threaded" means *one V8 instance (isolate) runs JS on one thread*. V8 is a library, so Node can create several isolates. `new Worker()` asks the OS for a **new thread** (via libuv's thread API, *not* the 4-thread pool) and starts a **new V8 isolate + a new event loop** on it, each with its own call stack, heap and GC.
+Explained in [03a, 4.5](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#45-if-v8-is-single-threaded-where-do-worker-threads-come-from). Code and communication details are in [03a, Part 5](03a-NodeJS-Runtime-Core-Concepts-With-Whiteboards.md#part-5-interview-questions-threads-concurrency-and-workers).
 
 ```mermaid
 flowchart TD
@@ -374,15 +211,6 @@ flowchart TD
     W2 -.-> POOL
 ```
 
-Memory is **not shared by default** (communicate with `postMessage`, or share raw memory with `SharedArrayBuffer` + `Atomics`). Workers cost start-up time and memory, so use a small **pool of reusable workers** (about the CPU core count) instead of one per request.
-
-**Why not just set the pool to 1024?**
-- CPU cores are the real limit. On an 8-core machine only 8 threads run truly in parallel, so hundreds of threads add context-switching and memory cost without making work faster.
-- It only helps the four built-in task types, and does nothing for your own JS or for network I/O (which uses epoll/kqueue).
-- It gives no isolation: a crash still takes down the whole process.
-
-**Rule of thumb:** many fs/crypto jobs queuing → raise `UV_THREADPOOL_SIZE` (roughly up to the CPU core count) · heavy JS computation → `worker_threads` · run another program or isolate work → `child_process` · use all cores for a web server → `cluster`.
-
 ---
 
 ## 8. Quick Revision Cheat-Sheet
@@ -401,6 +229,7 @@ Memory is **not shared by default** (communicate with `postMessage`, or share ra
 | Phase order | Timers → Pending callbacks → Idle/Prepare → **Poll** → **Check** → Close |
 | Inner queues | `process.nextTick()` **then** promise callbacks, between phases |
 | Idle behaviour | Loop parks in **poll**; if `setImmediate` is queued → **check** next; else waits for the **nearest** timer |
-| Thread pool | 4 threads by default; fs, crypto, zlib, dns.lookup only |
+| Thread pool | 4 threads by default (`UV_THREADPOOL_SIZE`, max 1024); fs, crypto, zlib, dns.lookup only |
 | Network I/O | Not on the thread pool; OS notifies via epoll/kqueue |
 | Single vs multi | JS = single thread · Node process = multi-threaded |
+| More JS parallelism | `worker_threads` (CPU-heavy JS) · `cluster` (all cores) · `child_process` (other programs) |
