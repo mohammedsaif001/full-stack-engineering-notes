@@ -37,7 +37,7 @@ setTimeout(() => console.log("5 sec passed"), 5000);                // timer    
 
 ## 2. Big Picture: V8 + Libuv + OS
 
-*(Your "Node.js, libuv genie / superhero" diagram, with the thread pool and event loop added.)*
+*(The "Node.js, libuv genie / superhero" diagram, with the thread pool and event loop added.)*
 
 ```mermaid
 flowchart LR
@@ -65,7 +65,7 @@ flowchart LR
     LIBUV <--> OS
 ```
 
-### 2.1 What lives inside V8 (your first diagram)
+### 2.1 What lives inside V8
 
 | Part | Role |
 | :--- | :--- |
@@ -151,7 +151,7 @@ sum("a", "b") // 💥 assumption broken (strings!) → DE-OPTIMISE → back to I
 
 > 💡 **Practical takeaway:** keep function argument types consistent so V8 can optimise and keep the optimised code.
 
-> ⚠️ *Precision notes (your notes said "AST goes to both the interpreter and the compiler"):* strictly, the AST goes to **Ignition**, which generates the bytecode. Turbofan later takes the **hot bytecode plus the type feedback** Ignition collected. Modern V8 also has a middle tier called **Sparkplug** (a quick baseline compiler) between Ignition and Turbofan. And **V8 is an engine, not a language**: "JavaScript" is the language that is single-threaded and synchronous.
+> ⚠️ *Precision notes:* strictly, the AST goes to **Ignition**, which generates the bytecode. Turbofan later takes the **hot bytecode plus the type feedback** Ignition collected. Modern V8 also has a middle tier called **Sparkplug** (a quick baseline compiler) between Ignition and Turbofan. And **V8 is an engine, not a language**: "JavaScript" is the language that is single-threaded and synchronous.
 
 ---
 
@@ -206,9 +206,9 @@ flowchart TD
 - **If `setImmediate` is queued → next is CHECK, not TIMERS.**
 - **Timer wait example:** timers at 5 s, 10 s and 15 s → the loop waits in poll for the **nearest one (5 s)**, then starts the next cycle. It does **not** keep ticking for those 5 seconds.
 
-> ⚠️ *Wording fix:* your note says "the *latest* timer that can expire". It's the **earliest / nearest** one, which is the one due first.
+> ⚠️ *Precision note:* the loop waits for the **earliest / nearest** timer (the one due first), not the latest.
 
-### 4.4 Worked example (your last event-loop diagram)
+### 4.4 Worked example
 
 ```javascript
 setImmediate(() => console.log("setImmediate"));
@@ -263,12 +263,12 @@ flowchart LR
 - Each OS has a **scalable I/O event notification mechanism**. libuv hides the differences behind one API.
   - **Linux → `epoll`**
   - **macOS → `kqueue`**
-  - **Windows → `IOCP`** *(added to your notes, as Node runs on Windows too)*
+  - **Windows → `IOCP`**
 - **fds = file/socket descriptors.** To the OS, every open socket or file is just an integer handle. libuv says *"tell me when **these** descriptors become readable/writable"*, so **one thread can watch thousands of connections** without a thread per connection.
-- **"What data structure is behind epoll?"** (your "what DS?" question). Inside the Linux kernel an epoll instance keeps:
+- **"What data structure is behind epoll?"** Inside the Linux kernel an epoll instance keeps:
   - an **interest list**: a **red-black tree** of every fd being watched (fast add/remove/lookup), and
   - a **ready list**: a **linked list** of fds that have events right now. `epoll_wait()` just hands you this list, so it doesn't scan every connection each time.
-- **Follow-up topics you flagged:** **EventEmitter** (covered in [13-NodeJS-EventEmitter-Architecture-Event-Driven-Design.md](13-NodeJS-EventEmitter-Architecture-Event-Driven-Design.md)) and **Streams & Buffers** (covered in [14-NodeJS-Buffer-Architecture-Binary-Data-Encoding.md](14-NodeJS-Buffer-Architecture-Binary-Data-Encoding.md)).
+- **Related topics:** **EventEmitter** (covered in [13-NodeJS-EventEmitter-Architecture-Event-Driven-Design.md](13-NodeJS-EventEmitter-Architecture-Event-Driven-Design.md)) and **Streams & Buffers** (covered in [14-NodeJS-Buffer-Architecture-Binary-Data-Encoding.md](14-NodeJS-Buffer-Architecture-Binary-Data-Encoding.md)).
 
 ---
 
@@ -331,7 +331,7 @@ flowchart LR
 
 > **One-liner for interviews:** *"Node.js runs JavaScript on a single thread, but it is not single-threaded overall: libuv runs a pool of 4 worker threads in the background for file, crypto, compression and DNS work, and the OS handles network I/O."*
 
-### 7.1 Beyond the default (my addition, not from your notes)
+### 7.1 Beyond the default: real JavaScript parallelism
 
 If you need **more JavaScript parallelism** you opt in explicitly:
 
